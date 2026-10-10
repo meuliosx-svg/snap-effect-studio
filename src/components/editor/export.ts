@@ -80,7 +80,7 @@ export async function exportProject(p: Project, opts: { resolution: number; fps:
   }
   const recorder = new MediaRecorder(stream, { mimeType: support.mime, videoBitsPerSecond: opts.resolution >= 1080 ? 12_000_000 : 6_000_000 });
   const chunks: BlobPart[] = []; recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-  const finished = new Promise<Blob>((resolve, reject) => { recorder.onstop = () => opts.signal.aborted ? reject(new Error('Export cancelled')) : resolve(new Blob(chunks, { type: support.mime.split(';')[0] })); recorder.onerror = () => reject(new Error('Recording failed')); });
+  const finished = new Promise<Blob>((resolve, reject) => { recorder.onstop = () => opts.signal.aborted ? reject(new Error('Export cancelled')) : resolve(new Blob(chunks, { type: support.mime.split(';')[0] ?? 'video/webm' })); recorder.onerror = () => reject(new Error('Recording failed')); });
   let raf = 0; let timer = 0; const started = performance.now();
   const tick = () => {
     const t = Math.min(total, (performance.now() - started) / 1000);
