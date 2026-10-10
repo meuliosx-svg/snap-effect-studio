@@ -49,21 +49,25 @@ function drawMedia(ctx: CanvasRenderingContext2D, p: Project, l: MediaLayer, t: 
 
 export function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, t: number, W: number, H: number) {
   const a = layerAnim(l, t, l.text.length); if (a.opacity <= 0) return;
-  const fs = (l.size / 100) * H; const lineH = fs * 1.15;
+  const fs = (l.size / 100) * H; const lineH = fs * (l.lineHeight ?? 1.12); const glow = (l.glow ?? 100) / 100;
   let remaining = a.chars; const lines = l.text.split('\n').map(line => { const part = line.slice(0, Math.max(0, remaining)); remaining -= line.length + 1; return part; });
   ctx.save(); ctx.globalAlpha = a.opacity;
   ctx.translate((l.x / 100) * W, (l.y / 100) * H + (a.dy / 100) * H); ctx.rotate((l.rotation * Math.PI) / 180); ctx.scale(a.scale, a.scale);
-  ctx.font = `${fontWeight(l.font, l.bold)} ${fs}px "${l.font}"`; ctx.textBaseline = 'middle'; ctx.textAlign = l.align;
+  ctx.font = `${l.italic ? 'italic ' : ''}${fontWeight(l.font, l.bold)} ${fs}px "${l.font}"`; ctx.textBaseline = 'middle'; ctx.textAlign = l.align;
   const full = l.text.split('\n'); const widths = full.map(line => ctx.measureText(line).width); const maxW = Math.max(1, ...widths);
   const top = -((full.length - 1) * lineH) / 2; const ax = l.align === 'left' ? -maxW / 2 : l.align === 'right' ? maxW / 2 : 0;
   if (l.style === 'box') { const pad = fs * 0.3; ctx.fillStyle = l.accent; roundRect(ctx, -maxW / 2 - pad, top - lineH / 2 - pad * 0.5, maxW + pad * 2, full.length * lineH + pad, fs * 0.18); ctx.fill(); }
   lines.forEach((line, i) => {
     const y = top + i * lineH;
-    if (l.style === 'outline') { ctx.lineWidth = fs * 0.06; ctx.strokeStyle = l.color; ctx.lineJoin = 'round'; ctx.strokeText(line, ax, y); return; }
+    if (l.style === 'outline' || l.style === 'neon-outline') {
+      ctx.lineWidth = fs * ((l.outline ?? 4.5) / 100); ctx.strokeStyle = l.color; ctx.lineJoin = 'round';
+      if (l.style === 'neon-outline') { ctx.shadowColor = l.accent; ctx.shadowBlur = fs * 0.5 * glow; ctx.strokeText(line, ax, y); }
+      ctx.strokeText(line, ax, y); ctx.shadowBlur = 0; return;
+    }
     if (l.style === 'gradient') { const g = ctx.createLinearGradient(0, y - fs / 2, 0, y + fs / 2); g.addColorStop(0, l.color); g.addColorStop(1, l.accent); ctx.fillStyle = g; ctx.fillText(line, ax, y); return; }
     ctx.fillStyle = l.color;
-    if (l.style === 'glow') { ctx.shadowColor = l.accent; ctx.shadowBlur = fs * 0.35; ctx.fillText(line, ax, y); ctx.shadowBlur = fs * 0.12; }
-    if (l.style === 'neon') { ctx.shadowColor = l.accent; [0.9, 0.45, 0.15].forEach(b => { ctx.shadowBlur = fs * b; ctx.fillText(line, ax, y); }); }
+    if (l.style === 'glow') { ctx.shadowColor = l.accent; ctx.shadowBlur = fs * 0.5 * glow; ctx.fillText(line, ax, y); ctx.shadowBlur = fs * 0.12 * glow; }
+    if (l.style === 'neon') { ctx.shadowColor = l.accent; [0.9, 0.45, 0.15].forEach(b => { ctx.shadowBlur = fs * b * glow; ctx.fillText(line, ax, y); }); }
     if (l.style === 'shadow') { ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowOffsetY = fs * 0.06; ctx.shadowBlur = fs * 0.14; }
     ctx.fillText(line, ax, y); ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   });

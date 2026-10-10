@@ -2,6 +2,7 @@
 import { placeClips, projectDuration, clamp, type Project } from './model';
 import { mediaUrl } from './storage';
 import { drawFrame, frameSize } from './render';
+import { loadProjectFonts } from './fonts';
 
 type Slot = { el: HTMLVideoElement | HTMLAudioElement; start: number; end: number; in: number; rate: number; volume: number; muted: boolean; fadeIn: number; fadeOut: number; gain?: GainNode };
 
@@ -48,6 +49,7 @@ function buildSources(p: Project) {
 export async function captureFrame(p: Project, t: number) {
   const { width, height } = frameSize(p, 1080); const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas unavailable');
+  await loadProjectFonts(p);
   const src = buildSources(p); await document.fonts.ready; await src.ready(); await src.seekAll(t);
   drawFrame(ctx, p, t, src.get, width, height); src.dispose();
   return new Promise<Blob>((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('Capture failed')), 'image/png'));
@@ -67,13 +69,14 @@ export async function exportProject(p: Project, opts: { resolution: number; fps:
   const { width, height } = frameSize(p, opts.resolution);
   const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas unavailable');
+  await loadProjectFonts(p);
   const src = buildSources(p); await document.fonts.ready; await src.ready();
   const stream = canvas.captureStream(opts.fps);
   let audioCtx: AudioContext | null = null;
   if (src.slots.size) {
     try {
-      audioCtx = new AudioContext(); const dest = audioCtx.createMediaStreamDestination();
-      src.slots.forEach(s => { const node = audioCtx!.createMediaElementSource(s.el); const gain = audioCtx!.createGain(); gain.gain.value = 0; node.connect(gain).connect(dest); s.gain = gain; });
+      const mixer = new AudioContext(); audioCtx = mixer; const dest = mixer.createMediaStreamDestination();
+      src.slots.forEach(s => { const node = mixer.createMediaElementSource(s.el); const gain = mixer.createGain(); gain.gain.value = 0; node.connect(gain).connect(dest); s.gain = gain; });
       dest.stream.getAudioTracks().forEach(track => stream.addTrack(track));
       await audioCtx.resume();
     } catch { audioCtx = null; }

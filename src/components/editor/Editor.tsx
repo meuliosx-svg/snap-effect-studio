@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Minimize2, Type, Smile, Sparkles, Palette, SlidersHorizontal, Crop, Trash2, Scissors, Copy, Gauge, Volume2, Wand2, Film, Layers, Music2, Mic, Square, ChevronLeft, ChevronRight, RotateCw, FlipHorizontal, FlipVertical, Pencil, Clapperboard, ImagePlus, Download, X, ZoomIn, ZoomOut, Check, Loader2, Camera, ArrowLeftRight } from 'lucide-react';
 import Preview, { unlockMedia } from './Preview';
 import Timeline from './Timeline';
 import { createClock } from './clock';
 import { importFile } from './media';
 import { putProject } from './storage';
+import { importFont } from './fonts';
+import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  ASPECTS, EFFECTS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, placeClips, projectDuration, uid,
+  ASPECTS, EFFECTS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
   type Adjust, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
@@ -24,6 +26,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [pps, setPps] = useState(48);
   const [busy, setBusy] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<'saving' | 'saved' | 'error'>('saved');
   const [toast, setToast] = useState<string | null>(null);
   const [full, setFull] = useState(false);
   const [rec, setRec] = useState<{ stop: () => void; start: number } | null>(null);
@@ -39,7 +42,8 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   const redo = () => { const p = future.current.pop(); if (!p) return; past.current.push(ref.current); ref.current = p; setProject(p); };
 
   // autosave on device
-  useEffect(() => { const id = window.setTimeout(() => { void putProject(project); }, 350); return () => window.clearTimeout(id); }, [project]);
+  useEffect(() => { setSaveState('saving'); const id = window.setTimeout(() => { void putProject(project).then(() => setSaveState('saved')).catch(() => setSaveState('error')); }, 350); return () => window.clearTimeout(id); }, [project]);
+  const exit = async () => { try { await putProject(ref.current); onExit(); } catch { setSaveState('error'); flash('Could not save project — device storage may be full'); } };
 
   const duration = projectDuration(project);
   // playback loop
@@ -169,8 +173,10 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   });
 
+  const lanes = packLanes(project.layers);
+  const timelineHeight = Math.min(280, Math.max(150, 104 + 42 * (lanes.text.length + lanes.visual.length + lanes.audio.length)));
   const hasSel = !!(selClip || selLayer || selTrans);
-  const toolBtn = (label: string, Icon: typeof Type, onClick: () => void, cls = '') => <button key={label} className={`opt ${cls}`} onClick={onClick}><Icon /><span>{label}</span></button>;
+  const toolBtn = (label: string, Icon: typeof Type, onClick: () => void, cls = '') => <Button variant="ghost" key={label} className={`opt ${cls}`} title={label} onClick={onClick}><Icon /><span>{label}</span></Button>;
 
   const options = () => {
     const common = [toolBtn('Delete', Trash2, deleteSelected, 'danger')];
@@ -191,26 +197,20 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   return <div className={`ed ${full ? 'is-full' : ''}`}>
     <input ref={fileRef} type="file" multiple hidden onChange={e => void onFiles(e.target.files)} />
     <header className="ed-top">
-      <button className="ic" aria-label="Back to projects" onClick={onExit}><ArrowLeft /></button>
+      <Button variant="ghost" className="ic" aria-label="Back to projects" onClick={() => void exit()}><ArrowLeft /></Button>
       <input className="ed-name" value={project.name} onChange={e => apply(p => ({ ...p, name: e.target.value }), false)} aria-label="Project name" />
       <div className="ed-top-r">
-        <button className="ic" aria-label="Undo" disabled={!past.current.length} onClick={undo}><Undo2 /></button>
-        <button className="ic" aria-label="Redo" disabled={!future.current.length} onClick={redo}><Redo2 /></button>
-        <button className="pill" onClick={() => setSheet('canvas')}>{project.aspect}</button>
-        <button className="export-btn" onClick={() => setSheet('export')}><Download /> Export</button>
+        <Button variant="ghost" className="ic" aria-label="Undo" disabled={!past.current.length} onClick={undo}><Undo2 /></Button>
+        <Button variant="ghost" className="ic" aria-label="Redo" disabled={!future.current.length} onClick={redo}><Redo2 /></Button>
+        <span className={`save-state ${saveState}`} role="status">{saveState === 'saved' ? 'Saved on device' : saveState === 'saving' ? 'Saving…' : 'Save failed'}</span>
+        <Button variant="ghost" className="pill" aria-label="Aspect ratio" onClick={() => setSheet('canvas')}>{project.aspect}</Button>
+        <Button variant="ghost" className="export-btn" onClick={() => setSheet('export')}><Download /> Export</Button>
       </div>
     </header>
 
+    <div className="ed-workspace" style={{ ['--timeline-height' as string]: `${timelineHeight}px` } as CSSProperties}>
     <section className="ed-stage">
-      <aside className="ed-rail">
-        {hasSel && <button className="rail del" onClick={deleteSelected} aria-label="Delete selected"><Trash2 /><span>Delete</span></button>}
-        <button className="rail" onClick={() => setSheet('text')}><Type /><span>Text</span></button>
-        <button className="rail" onClick={() => { if (selLayer?.type !== 'sticker') select(null); setSheet('sticker'); }}><Smile /><span>Sticker</span></button>
-        <button className="rail" onClick={() => { if (selLayer?.type !== 'effect') select(null); setSheet('effect'); }}><Sparkles /><span>Effects</span></button>
-        <button className="rail" onClick={() => openLook('filter')}><Palette /><span>Filters</span></button>
-        <button className="rail" onClick={() => openLook('adjust')}><SlidersHorizontal /><span>Color</span></button>
-        <button className="rail" onClick={() => setSheet('canvas')}><Crop /><span>Canvas</span></button>
-      </aside>
+
       <div className="ed-preview">
         <Preview project={project} clock={clock} playing={playing} selection={selection} onSelect={s => { setSelection(s); }} onBeginGesture={beginGesture} onLayerChange={(id, patch) => patchLayer(id, patch)} onEditText={id => { setSelection({ kind: 'layer', id }); setSheet('textEdit'); }} />
       </div>
@@ -218,11 +218,11 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
 
     <div className="ed-transport">
       <TimeLabel clock={clock} duration={duration} />
-      <button className="play" aria-label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>{playing ? <Pause /> : <Play />}</button>
+      <Button variant="ghost" className="play" aria-label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>{playing ? <Pause /> : <Play />}</Button>
       <div className="ed-tr-r">
-        <button className="ic" aria-label="Zoom out timeline" onClick={() => setPps(v => clamp(v * 0.75, 8, 300))}><ZoomOut /></button>
-        <button className="ic" aria-label="Zoom in timeline" onClick={() => setPps(v => clamp(v * 1.33, 8, 300))}><ZoomIn /></button>
-        <button className="ic" aria-label="Full screen preview" onClick={() => setFull(f => !f)}>{full ? <Minimize2 /> : <Maximize2 />}</button>
+        <Button variant="ghost" className="ic" aria-label="Zoom out timeline" onClick={() => setPps(v => clamp(v * 0.75, 8, 300))}><ZoomOut /></Button>
+        <Button variant="ghost" className="ic" aria-label="Zoom in timeline" onClick={() => setPps(v => clamp(v * 1.33, 8, 300))}><ZoomIn /></Button>
+        <Button variant="ghost" className="ic" aria-label="Full screen preview" onClick={() => setFull(f => !f)}>{full ? <Minimize2 /> : <Maximize2 />}</Button>
       </div>
     </div>
 
@@ -232,21 +232,33 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
       <div className="tl-playhead" />
     </div>
 
-    <nav className="ed-bottom">
-      {hasSel ? <div className="opts">
-        <button className="opt back" onClick={() => select(null)} aria-label="Done"><Check /><span>Done</span></button>
+    <aside className="ed-rail" aria-label="Editing tools">
+      <div className="rail-heading">{hasSel ? 'SELECTED' : 'TOOLS'}</div>
+      {hasSel && <div className="opts">
+        {toolBtn('Done', Check, () => select(null), 'back')}
         {options()}
-      </div> : <div className="dial">
-        <button className="dial-btn" onClick={() => pickFiles('main')}><span className="dial-ring"><Film /></span>Media</button>
-        <button className="dial-btn" onClick={() => setSheet('layer')}><span className="dial-ring"><Layers /></span>Layer</button>
-        <button className="dial-btn" onClick={() => setSheet('audio')}><span className="dial-ring"><Music2 /></span>Audio</button>
-        <button className={`dial-btn ${rec ? 'rec-on' : ''}`} onClick={() => void startRec()}><span className="dial-ring rec">{rec ? <Square /> : <Mic />}</span>{rec ? 'Stop' : 'REC'}</button>
       </div>}
-    </nav>
+      <div className="rail-group">
+        {toolBtn('Media', Film, () => pickFiles('main'))}
+        {toolBtn('Text', Type, () => setSheet('text'))}
+        {toolBtn('Layers', Layers, () => setSheet('layer'))}
+        {toolBtn('Audio', Music2, () => setSheet('audio'))}
+        {toolBtn(rec ? 'Stop' : 'Record', rec ? Square : Mic, () => void startRec(), rec ? 'danger' : '')}
+      </div>
+      <div className="rail-group">
+        {toolBtn('Stickers', Smile, () => { if (selLayer?.type !== 'sticker') select(null); setSheet('sticker'); })}
+        {toolBtn('Effects', Sparkles, () => { if (selLayer?.type !== 'effect') select(null); setSheet('effect'); })}
+        {toolBtn('Filters', Palette, () => openLook('filter'))}
+        {toolBtn('Color', SlidersHorizontal, () => openLook('adjust'))}
+        {toolBtn('Speed', Gauge, () => { const c = selClip ?? clipAt(placeClips(project.clips), t())?.clip; if (!c || c.kind !== 'video') { flash('Select a video to change speed'); return; } setSelection({ kind: 'clip', id: c.id }); setSheet('speed'); })}
+        {toolBtn('Ratio', Crop, () => setSheet('canvas'))}
+      </div>
+    </aside>
+    </div>
 
     {sheet && <div className="sheet-shade" onPointerDown={() => setSheet(null)} />}
     {sheet && <div className="sheet" role="dialog">
-      <div className="sheet-head"><b>{SHEET_TITLES[sheet]}</b><button className="ic" aria-label="Close" onClick={() => setSheet(null)}><X /></button></div>
+      <div className="sheet-head"><b>{SHEET_TITLES[sheet]}</b><Button variant="ghost" className="ic" aria-label="Close" onClick={() => setSheet(null)}><X /></Button></div>
       <div className="sheet-body">
         <SheetBody sheet={sheet} project={project} selClip={selClip} selLayer={selLayer} selTrans={selTrans} lookTarget={lookTarget()}
           patchClip={patchClip} patchLayer={patchLayer} beginGesture={beginGesture} apply={apply} addText={addText} addSticker={addSticker} addEffect={addEffect}
@@ -280,26 +292,26 @@ function Slider({ label, value, min, max, step = 1, unit = '', onStart, onChange
     <input type="range" min={min} max={max} step={step} value={value} onPointerDown={onStart} onKeyDown={onStart} onChange={e => onChange(Number(e.target.value))} /></label>;
 }
 const Chips = <T extends string>({ items, value, onPick }: { items: { id: T; name: string }[]; value: T; onPick: (v: T) => void }) =>
-  <div className="chips">{items.map(i => <button key={i.id} className={`chip ${i.id === value ? 'on' : ''}`} onClick={() => onPick(i.id)}>{i.name}</button>)}</div>;
+  <div className="chips">{items.map(i => <Button variant="ghost" key={i.id} className={`chip ${i.id === value ? 'on' : ''}`} onClick={() => onPick(i.id)}>{i.name}</Button>)}</div>;
 
 function SheetBody(b: BodyProps) {
   const { sheet, project, selClip, selLayer, selTrans, lookTarget, patchClip, patchLayer, beginGesture, apply } = b;
   if (sheet === 'layer') return <div className="grid-tiles">
-    <button className="tile" onClick={() => b.pickFiles('overlay')}><ImagePlus /><span>Overlay photo / video</span></button>
-    <button className="tile" onClick={() => b.addText({})}><Type /><span>Text</span></button>
-    <button className="tile" onClick={() => b.addSticker('🔥')}><Smile /><span>Sticker</span></button>
-    <button className="tile" onClick={() => b.addEffect('glitch')}><Sparkles /><span>Effect</span></button>
+    <Button variant="ghost" className="tile" onClick={() => b.pickFiles('overlay')}><ImagePlus /><span>Overlay photo / video</span></Button>
+    <Button variant="ghost" className="tile" onClick={() => b.addText({})}><Type /><span>Text</span></Button>
+    <Button variant="ghost" className="tile" onClick={() => b.addSticker('🔥')}><Smile /><span>Sticker</span></Button>
+    <Button variant="ghost" className="tile" onClick={() => b.addEffect('glitch')}><Sparkles /><span>Effect</span></Button>
   </div>;
   if (sheet === 'audio') return <div className="grid-tiles">
-    <button className="tile" onClick={() => b.pickFiles('audio')}><Music2 /><span>Import music / sound</span></button>
-    <button className="tile" onClick={b.startRec}><Mic /><span>Record voiceover</span></button>
-    <button className="tile" onClick={() => b.pickFiles('audio')}><Clapperboard /><span>Extract audio from video</span></button>
+    <Button variant="ghost" className="tile" onClick={() => b.pickFiles('audio')}><Music2 /><span>Import music / sound</span></Button>
+    <Button variant="ghost" className="tile" onClick={b.startRec}><Mic /><span>Record voiceover</span></Button>
+    <Button variant="ghost" className="tile" onClick={() => b.pickFiles('audio')}><Clapperboard /><span>Extract audio from video</span></Button>
   </div>;
-  if (sheet === 'text') return <div className="presets">{TEXT_PRESETS.map(p => <button key={p.name} className="preset" onClick={() => b.addText(p.patch)}>
-    <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></button>)}</div>;
-  if (sheet === 'sticker') return <div className="stickers">{STICKERS.map(s => <button key={s} onClick={() => b.addSticker(s)}>{s}</button>)}</div>;
+  if (sheet === 'text') return <div className="presets">{TEXT_PRESETS.map(p => <Button variant="ghost" key={p.name} className="preset" onClick={() => b.addText(p.patch)}>
+    <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></Button>)}</div>;
+  if (sheet === 'sticker') return <div className="stickers">{STICKERS.map(s => <Button variant="ghost" key={s} onClick={() => b.addSticker(s)}>{s}</Button>)}</div>;
   if (sheet === 'effect') return <>
-    <div className="grid-tiles">{EFFECTS.map(e => <button key={e.id} className={`tile small ${selLayer?.type === 'effect' && selLayer.effect === e.id ? 'on' : ''}`} onClick={() => b.addEffect(e.id)}><Sparkles /><span>{e.name}</span></button>)}</div>
+    <div className="grid-tiles">{EFFECTS.map(e => <Button variant="ghost" key={e.id} className={`tile small ${selLayer?.type === 'effect' && selLayer.effect === e.id ? 'on' : ''}`} onClick={() => b.addEffect(e.id)}><Sparkles /><span>{e.name}</span></Button>)}</div>
     {selLayer?.type === 'effect' && <Slider label="Intensity" value={selLayer.intensity} min={5} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { intensity: v })} />}
   </>;
   if (sheet === 'filter' || sheet === 'adjust') {
@@ -307,30 +319,31 @@ function SheetBody(b: BodyProps) {
     const filter = lookTarget.kind === 'clip' ? lookTarget.c.filter : lookTarget.l.filter; const adj = lookTarget.kind === 'clip' ? lookTarget.c.adjust : lookTarget.l.adjust;
     const thumb = project.media[lookTarget.kind === 'clip' ? lookTarget.c.mediaId : lookTarget.l.mediaId]?.thumbs[0];
     const set = (patch: { filter?: string; adjust?: Adjust }, record = false) => lookTarget.kind === 'clip' ? patchClip(lookTarget.c.id, patch, record) : patchLayer(lookTarget.l.id, patch, record);
-    if (sheet === 'filter') return <div className="filters">{FILTERS.map(f => <button key={f.id} className={`flt ${f.id === filter ? 'on' : ''}`} onClick={() => set({ filter: f.id }, true)}>
-      <span style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: f.css || undefined }} /><small>{f.name}</small></button>)}</div>;
+    if (sheet === 'filter') return <div className="filters">{FILTERS.map(f => <Button variant="ghost" key={f.id} className={`flt ${f.id === filter ? 'on' : ''}`} onClick={() => set({ filter: f.id }, true)}>
+      <span style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: f.css || undefined }} /><small>{f.name}</small></Button>)}</div>;
     const keys: [keyof Adjust, string, number, number][] = [['brightness', 'Brightness', -100, 100], ['contrast', 'Contrast', -100, 100], ['saturation', 'Saturation', -100, 100], ['temperature', 'Temperature', -100, 100], ['hue', 'Hue', -180, 180], ['vignette', 'Vignette', 0, 100]];
     return <>{keys.map(([k, label, min, max]) => <Slider key={k} label={label} value={adj[k]} min={min} max={max} onStart={beginGesture} onChange={v => set({ adjust: { ...adj, [k]: v } })} />)}
-      <button className="ghost" onClick={() => set({ adjust: neutralAdjust() }, true)}>Reset color</button></>;
+      <Button variant="ghost" className="ghost" onClick={() => set({ adjust: neutralAdjust() }, true)}>Reset color</Button></>;
   }
   if (sheet === 'speed' && selClip) return <>
+    <p className="lbl">Playback</p><div className="chips">{[{name: 'Slow motion', speed: 0.5}, {name: 'Normal', speed: 1}, {name: 'Fast', speed: 2}].map(mode => <Button variant="ghost" key={mode.name} className={`chip ${(mode.speed < 1 ? selClip.speed < 1 : mode.speed === 1 ? selClip.speed === 1 : selClip.speed > 1) ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { speed: mode.speed }, true)}>{mode.name}</Button>)}</div>
     <Slider label="Speed" value={selClip.speed} min={0.25} max={4} step={0.05} unit="x" onStart={beginGesture} onChange={v => patchClip(selClip.id, { speed: v })} />
-    <div className="chips">{[0.25, 0.5, 1, 1.5, 2, 3, 4].map(s => <button key={s} className={`chip ${selClip.speed === s ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { speed: s }, true)}>{s}x</button>)}</div>
+    <div className="chips">{[0.25, 0.5, 1, 1.5, 2, 3, 4].map(s => <Button variant="ghost" key={s} className={`chip ${selClip.speed === s ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { speed: s }, true)}>{s}x</Button>)}</div>
   </>;
   if (sheet === 'volume') {
     if (selClip) return <><Slider label="Volume" value={selClip.volume} min={0} max={200} unit="%" onStart={beginGesture} onChange={v => patchClip(selClip.id, { volume: v })} />
-      <button className={`chip ${selClip.muted ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { muted: !selClip.muted }, true)}>{selClip.muted ? 'Muted' : 'Mute clip'}</button></>;
+      <Button variant="ghost" className={`chip ${selClip.muted ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { muted: !selClip.muted }, true)}>{selClip.muted ? 'Muted' : 'Mute clip'}</Button></>;
     if (selLayer?.type === 'audio' || selLayer?.type === 'media') return <><Slider label="Volume" value={selLayer.volume} min={0} max={200} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { volume: v })} />
       {selLayer.type === 'audio' && <><Slider label="Fade in" value={selLayer.fadeIn} min={0} max={5} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { fadeIn: v })} />
         <Slider label="Fade out" value={selLayer.fadeOut} min={0} max={5} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { fadeOut: v })} /></>}
-      <button className={`chip ${selLayer.muted ? 'on' : ''}`} onClick={() => patchLayer(selLayer.id, { muted: !selLayer.muted }, true)}>{selLayer.muted ? 'Muted' : 'Mute'}</button></>;
+      <Button variant="ghost" className={`chip ${selLayer.muted ? 'on' : ''}`} onClick={() => patchLayer(selLayer.id, { muted: !selLayer.muted }, true)}>{selLayer.muted ? 'Muted' : 'Mute'}</Button></>;
   }
   if (sheet === 'transform') {
     if (selClip) return <>
       <div className="chips">
-        <button className="chip" onClick={() => patchClip(selClip.id, { rotate: (selClip.rotate + 90) % 360 }, true)}><RotateCw /> Rotate</button>
-        <button className={`chip ${selClip.flipH ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { flipH: !selClip.flipH }, true)}><FlipHorizontal /> Flip</button>
-        <button className={`chip ${selClip.flipV ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { flipV: !selClip.flipV }, true)}><FlipVertical /> Mirror</button>
+        <Button variant="ghost" className="chip" onClick={() => patchClip(selClip.id, { rotate: (selClip.rotate + 90) % 360 }, true)}><RotateCw /> Rotate</Button>
+        <Button variant="ghost" className={`chip ${selClip.flipH ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { flipH: !selClip.flipH }, true)}><FlipHorizontal /> Flip</Button>
+        <Button variant="ghost" className={`chip ${selClip.flipV ? 'on' : ''}`} onClick={() => patchClip(selClip.id, { flipV: !selClip.flipV }, true)}><FlipVertical /> Mirror</Button>
       </div>
       <p className="lbl">Motion</p>
       <Chips<Motion> items={[{ id: 'none', name: 'None' }, { id: 'zoom-in', name: 'Zoom in' }, { id: 'zoom-out', name: 'Zoom out' }, { id: 'pan-left', name: 'Pan left' }, { id: 'pan-right', name: 'Pan right' }]} value={selClip.motion} onPick={v => patchClip(selClip.id, { motion: v }, true)} />
@@ -347,27 +360,53 @@ function SheetBody(b: BodyProps) {
     <p className="lbl">Out</p><Chips<AnimOut> items={[{ id: 'none', name: 'None' }, { id: 'fade', name: 'Fade' }, { id: 'pop', name: 'Pop' }, { id: 'slide', name: 'Slide' }, { id: 'zoom', name: 'Zoom' }]} value={selLayer.animOut} onPick={v => patchLayer(selLayer.id, { animOut: v }, true)} />
   </>;
   if (sheet === 'textEdit' && selLayer?.type === 'text') { const l = selLayer; return <>
-    <textarea className="txt-input" value={l.text} autoFocus rows={2} onFocus={beginGesture} onChange={e => patchLayer(l.id, { text: e.target.value })} />
+    <textarea aria-label="Text content" className="txt-input" value={l.text} autoFocus rows={2} onFocus={beginGesture} onChange={e => patchLayer(l.id, { text: e.target.value })} />
     <p className="lbl">Style</p><Chips items={TEXT_STYLES} value={l.style} onPick={v => patchLayer(l.id, { style: v }, true)} />
-    <p className="lbl">Font</p><div className="chips">{FONTS.map(f => <button key={f.id} className={`chip ${l.font === f.id ? 'on' : ''}`} style={{ fontFamily: `"${f.id}"` }} onClick={() => patchLayer(l.id, { font: f.id }, true)}>{f.name}</button>)}</div>
-    <p className="lbl">Color</p><div className="swatches">{SWATCHES.map(c => <button key={c} aria-label={c} className={l.color === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { color: c }, true)} />)}<input type="color" value={l.color} onChange={e => patchLayer(l.id, { color: e.target.value })} /></div>
-    <p className="lbl">Glow / outline / box color</p><div className="swatches">{SWATCHES.map(c => <button key={c} aria-label={c} className={l.accent === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { accent: c }, true)} />)}<input type="color" value={l.accent} onChange={e => patchLayer(l.id, { accent: e.target.value })} /></div>
+    <p className="lbl">Font</p><FontUpload project={project} apply={apply} onPick={font => patchLayer(l.id, { font }, true)} flash={b.flash} /><div className="chips">{[...FONTS, ...(project.fonts ?? []).map(f => ({ id: f.family, name: f.name }))].map(f => <Button variant="ghost" key={f.id} className={`chip ${l.font === f.id ? 'on' : ''}`} style={{ fontFamily: `"${f.id}"` }} onClick={() => patchLayer(l.id, { font: f.id }, true)}>{f.name}</Button>)}</div>
+    <p className="lbl">Color</p><div className="swatches">{SWATCHES.map(c => <Button variant="ghost" key={c} aria-label={c} className={l.color === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { color: c }, true)} />)}<input type="color" value={l.color} onChange={e => patchLayer(l.id, { color: e.target.value })} /></div>
+    <p className="lbl">Glow / outline / box color</p><div className="swatches">{SWATCHES.map(c => <Button variant="ghost" key={c} aria-label={c} className={l.accent === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { accent: c }, true)} />)}<input type="color" value={l.accent} onChange={e => patchLayer(l.id, { accent: e.target.value })} /></div>
+    <Slider label="Glow strength" value={l.glow ?? 100} min={0} max={200} unit="%" onStart={beginGesture} onChange={v => patchLayer(l.id, { glow: v })} />
+    <Slider label="Outline thickness" value={l.outline ?? 4.5} min={1} max={12} step={0.5} onStart={beginGesture} onChange={v => patchLayer(l.id, { outline: v })} />
+    <Slider label="Line height" value={l.lineHeight ?? 1.12} min={0.8} max={2} step={0.05} onStart={beginGesture} onChange={v => patchLayer(l.id, { lineHeight: v })} />
+    <Slider label="Opacity" value={l.opacity * 100} min={0} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(l.id, { opacity: v / 100 })} />
+    <Slider label="Duration" value={l.duration} min={0.2} max={60} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchLayer(l.id, { duration: v })} />
     <Slider label="Size" value={l.size} min={3} max={40} step={0.5} onStart={beginGesture} onChange={v => patchLayer(l.id, { size: v })} />
-    <div className="chips"><button className={`chip ${l.bold ? 'on' : ''}`} onClick={() => patchLayer(l.id, { bold: !l.bold }, true)}><b>B</b> Bold</button>
-      {(['left', 'center', 'right'] as const).map(a => <button key={a} className={`chip ${l.align === a ? 'on' : ''}`} onClick={() => patchLayer(l.id, { align: a }, true)}>{a}</button>)}</div>
+    <div className="chips"><Button variant="ghost" className={`chip ${l.bold ? 'on' : ''}`} onClick={() => patchLayer(l.id, { bold: !l.bold }, true)}><b>B</b> Bold</Button>
+      <Button variant="ghost" className={`chip ${l.italic ? 'on' : ''}`} onClick={() => patchLayer(l.id, { italic: !l.italic }, true)}><i>I</i> Italic</Button>
+      {(['left', 'center', 'right'] as const).map(a => <Button variant="ghost" key={a} className={`chip ${l.align === a ? 'on' : ''}`} onClick={() => patchLayer(l.id, { align: a }, true)}>{a}</Button>)}</div>
   </>; }
   if (sheet === 'transition' && selTrans) return <>
     <Chips items={TRANSITIONS} value={selTrans.transition.type} onPick={v => patchClip(selTrans.id, { transition: { ...selTrans.transition, type: v } }, true)} />
     <Slider label="Duration" value={selTrans.transition.duration} min={0.2} max={2} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchClip(selTrans.id, { transition: { ...selTrans.transition, duration: v } })} />
-    <button className="ghost" onClick={() => apply(p => ({ ...p, clips: p.clips.map((c, i) => i === 0 ? c : { ...c, transition: { ...selTrans.transition } }) }))}>Apply to all cuts</button>
+    <Button variant="ghost" className="ghost" onClick={() => apply(p => ({ ...p, clips: p.clips.map((c, i) => i === 0 ? c : { ...c, transition: { ...selTrans.transition } }) }))}>Apply to all cuts</Button>
   </>;
   if (sheet === 'canvas') return <>
-    <p className="lbl">Size</p><div className="chips">{ASPECTS.map(a => <button key={a} className={`chip ${project.aspect === a ? 'on' : ''}`} onClick={() => apply(p => ({ ...p, aspect: a }))}>{a}{a === '9:16' ? ' TikTok' : a === '16:9' ? ' YouTube' : a === '1:1' ? ' Square' : a === '4:5' ? ' Post' : ''}</button>)}</div>
-    <p className="lbl">Background</p><div className="swatches">{['#000000', '#ffffff', '#111827', '#ff2d92', '#0a84ff', '#32d74b', '#ffd60a'].map(c => <button key={c} aria-label={c} className={project.background === c ? 'on' : ''} style={{ background: c }} onClick={() => apply(p => ({ ...p, background: c }))} />)}</div>
+    <p className="lbl">Size</p><div className="chips">{ASPECTS.map(a => <Button variant="ghost" key={a} className={`chip ${project.aspect === a ? 'on' : ''}`} onClick={() => apply(p => ({ ...p, aspect: a }))}>{a}{a === '9:16' ? ' TikTok' : a === '16:9' ? ' YouTube' : a === '1:1' ? ' Square' : a === '4:5' ? ' Post' : ''}</Button>)}</div>
+    <p className="lbl">Background</p><div className="swatches">{['#000000', '#ffffff', '#111827', '#ff2d92', '#0a84ff', '#32d74b', '#ffd60a'].map(c => <Button variant="ghost" key={c} aria-label={c} className={project.background === c ? 'on' : ''} style={{ background: c }} onClick={() => apply(p => ({ ...p, background: c }))} />)}</div>
     <Slider label="Default photo length" value={project.imageDuration} min={1} max={15} step={0.5} unit="s" onStart={() => undefined} onChange={v => apply(p => ({ ...p, imageDuration: v }), false)} />
   </>;
   if (sheet === 'export') return <ExportPanel project={project} at={b.clockTime} flash={b.flash} />;
   return <p className="muted">Select something on the timeline first.</p>;
+}
+
+function FontUpload({ project, apply, onPick, flash }: { project: Project; apply: BodyProps['apply']; onPick: (font: string) => void; flash: BodyProps['flash'] }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
+  const upload = async (file?: File) => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const font = await importFont(file);
+      apply(p => ({ ...p, fonts: [...(p.fonts ?? []), font] }));
+      onPick(font.family);
+      flash('Font added and saved on this device');
+    } catch (e) { flash(e instanceof Error ? e.message : 'Could not load font'); }
+    finally { setLoading(false); }
+  };
+  return <>
+    <input ref={input} type="file" hidden accept=".ttf,.otf,.woff,.woff2" aria-label="Upload font file" onChange={e => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
+    <Button variant="outline" className="font-upload" disabled={loading} onClick={() => input.current?.click()}>{loading ? <Loader2 className="spin" /> : <ImagePlus />}{loading ? 'Loading font…' : 'Upload font'}<small>{project.fonts?.length ?? 0} custom</small></Button>
+  </>;
 }
 
 function ExportPanel({ project, at, flash }: { project: Project; at: () => number; flash: (m: string) => void }) {
@@ -384,11 +423,11 @@ function ExportPanel({ project, at, flash }: { project: Project; at: () => numbe
   const frame = async () => { try { const blob = await captureFrame(project, at()); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${project.name || 'frame'}.png`; a.click(); } catch { flash('Could not save frame'); } };
   if (!support) return <p className="muted">This browser can't record video. Try Chrome, Edge or a recent Safari.</p>;
   return <>
-    <p className="lbl">Quality</p><div className="chips">{[480, 720, 1080].map(r => <button key={r} className={`chip ${res === r ? 'on' : ''}`} onClick={() => setRes(r)}>{r}p</button>)}</div>
+    <p className="lbl">Quality</p><div className="chips">{[480, 720, 1080].map(r => <Button variant="ghost" key={r} className={`chip ${res === r ? 'on' : ''}`} onClick={() => setRes(r)}>{r}p</Button>)}</div>
     <p className="muted">Saves as {support.ext.toUpperCase()} with sound, 30 fps. Export plays your video in real time ({Math.ceil(dur)}s) — keep this tab open.</p>
-    {pct !== null ? <><div className="bar"><span style={{ width: `${pct}%` }} /></div><button className="ghost" onClick={() => ctrl.current?.abort()}>Cancel</button></>
+    {pct !== null ? <><div className="bar"><span style={{ width: `${pct}%` }} /></div><Button variant="ghost" className="ghost" onClick={() => ctrl.current?.abort()}>Cancel</Button></>
       : out ? <a className="export-btn big" href={out.url} download={out.name}><Download /> Save video</a>
-      : <button className="export-btn big" onClick={() => void run()}><Download /> Export video</button>}
-    <button className="ghost" onClick={() => void frame()}><Camera /> Save current frame as photo</button>
+      : <Button variant="ghost" className="export-btn big" onClick={() => void run()}><Download /> Export video</Button>}
+    <Button variant="ghost" className="ghost" onClick={() => void frame()}><Camera /> Save current frame as photo</Button>
   </>;
 }
