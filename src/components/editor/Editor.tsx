@@ -241,11 +241,11 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
         {toolBtn('Text', Type, () => setSheet('text'))}
         {toolBtn('Audio', Music2, () => setSheet('audio'))}
         {toolBtn('Overlay', Layers, () => setSheet('layer'))}
-        {toolBtn('Effects', Sparkles, () => { if (selLayer?.type !== 'effect') select(null); setSheet('effect'); })}
+        {toolBtn('Effects', Sparkles, () => { select(null); setSheet('effect'); })}
         {toolBtn('Filters', Palette, () => openLook('filter'))}
         {toolBtn('Adjust', SlidersHorizontal, () => openLook('adjust'))}
         {toolBtn('Speed', Gauge, () => { const c = selClip ?? clipAt(placeClips(project.clips), t())?.clip; if (!c || c.kind !== 'video') { flash('Select a video to change speed'); return; } setSelection({ kind: 'clip', id: c.id }); setSheet('speed'); })}
-        {toolBtn('Stickers', Smile, () => { if (selLayer?.type !== 'sticker') select(null); setSheet('sticker'); })}
+        {toolBtn('Stickers', Smile, () => { select(null); setSheet('sticker'); })}
         {toolBtn('Ratio', Crop, () => setSheet('canvas'))}
         {toolBtn(rec ? 'Stop' : 'Record', rec ? Square : Mic, () => void startRec(), rec ? 'danger' : '')}
       </>}
