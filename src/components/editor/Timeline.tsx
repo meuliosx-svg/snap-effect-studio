@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { Plus, ArrowLeftRight } from 'lucide-react';
 import { clamp, clipLength, formatShort, layerLabel, packLanes, placeClips, projectDuration, type Clip, type Layer, type Project, type Selection } from './model';
+import { Button } from '@/components/ui/button';
 import type { Clock } from './clock';
 
 type Props = {
@@ -42,7 +43,18 @@ export default function Timeline({ project, clock, playing, pps, selection, onSe
     if (Math.abs(el.scrollLeft - lastSet.current) < 1.5) return;
     lastSet.current = -1; onScrub(clamp(el.scrollLeft / pps, 0, duration));
   };
-  const onWheel = (e: React.WheelEvent) => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); onZoom(e.deltaY < 0 ? 1.15 : 0.87); } };
+  const zoomRef = useRef(onZoom); zoomRef.current = onZoom;
+  useEffect(() => {
+    const el = scroller.current; if (!el) return;
+    const wheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
+      zoomRef.current(Math.exp(-dy * 0.0015));
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, []);
 
   // pinch-zoom on touch
   const pinch = useRef<{ d: number } | null>(null);
@@ -99,17 +111,17 @@ export default function Timeline({ project, clock, playing, pps, selection, onSe
     </div>;
   };
 
-  return <div className="tl" ref={scroller} onScroll={onScroll} onWheel={onWheel} onTouchMove={onTouchMove} onTouchEnd={() => { pinch.current = null; }} onPointerDown={() => onSelect(null)}>
+  return <div className="tl" ref={scroller} onScroll={onScroll} onTouchMove={onTouchMove} onTouchEnd={() => { pinch.current = null; }} onPointerDown={() => onSelect(null)}>
     <div className="tl-inner" style={{ width: width + half * 2, paddingLeft: half, paddingRight: half }}>
       <div className="tl-ruler" style={{ width }}>{ticks.map(s => <span key={s} style={{ left: s * pps }}>{Number.isInteger(s) ? formatShort(s) : '·'}</span>)}</div>
-      {lanes.visual.map((lane, i) => <div key={`v${i}`} className="tl-row small" style={{ width }}>{lane.map(layerBlock)}</div>)}
       <div className="tl-row main" style={{ width: width + 60 }}>
         {placed.map(clipBlock)}
-        {placed.slice(1).map(pc => <button key={`t${pc.clip.id}`} className={`tl-trans ${pc.clip.transition.type !== 'none' ? 'on' : ''} ${isSel('transition', pc.clip.id) ? 'sel' : ''}`} style={{ left: pc.start * pps }} aria-label="Transition" onPointerDown={e => { e.stopPropagation(); onSelect({ kind: 'transition', id: pc.clip.id }); }}><ArrowLeftRight /></button>)}
-        <button className="tl-add" style={{ left: mainEnd(placed) * pps + 8 }} aria-label="Add media" onPointerDown={e => e.stopPropagation()} onClick={onAddMedia}><Plus /></button>
+        {placed.slice(1).map(pc => <Button variant="ghost" key={`t${pc.clip.id}`} className={`tl-trans ${pc.clip.transition.type !== 'none' ? 'on' : ''} ${isSel('transition', pc.clip.id) ? 'sel' : ''}`} style={{ left: pc.start * pps }} aria-label="Transition" onPointerDown={e => { e.stopPropagation(); onSelect({ kind: 'transition', id: pc.clip.id }); }}><ArrowLeftRight /></Button>)}
+        <Button variant="ghost" className="tl-add" style={{ left: mainEnd(placed) * pps + 8 }} aria-label="Add media" onPointerDown={e => e.stopPropagation()} onClick={onAddMedia}><Plus /></Button>
       </div>
+      {lanes.text.map((lane, i) => <div key={`t${i}`} className="tl-row small text-lane" style={{ width }}>{lane.map(layerBlock)}</div>)}
+      {lanes.visual.map((lane, i) => <div key={`v${i}`} className="tl-row small" style={{ width }}>{lane.map(layerBlock)}</div>)}
       {lanes.audio.map((lane, i) => <div key={`a${i}`} className="tl-row small" style={{ width }}>{lane.map(layerBlock)}</div>)}
-      {!lanes.audio.length && <div className="tl-row small hint" style={{ width }}><span>{playing ? '' : '+ Add audio from the menu below'}</span></div>}
     </div>
   </div>;
 }
