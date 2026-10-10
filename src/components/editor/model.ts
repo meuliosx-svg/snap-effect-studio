@@ -18,8 +18,8 @@ export type Clip = {
 };
 
 type LayerBase = { id: string; start: number; duration: number; x: number; y: number; rotation: number; opacity: number; animIn: AnimIn; animOut: AnimOut };
-export type TextStyle = 'plain' | 'glow' | 'neon' | 'outline' | 'neon-outline' | 'shadow' | 'gradient' | 'box';
-export type TextLayer = LayerBase & { type: 'text'; text: string; font: string; size: number; color: string; accent: string; style: TextStyle; bold: boolean; align: 'left' | 'center' | 'right'; italic?: boolean; lineHeight?: number; glow?: number; outline?: number };
+export type TextStyle = 'plain' | 'glow' | 'neon' | 'outline' | 'neon-outline' | 'shadow' | 'gradient' | 'box' | 'stroke' | 'extrude';
+export type TextLayer = LayerBase & { type: 'text'; text: string; font: string; size: number; color: string; accent: string; style: TextStyle; bold: boolean; align: 'left' | 'center' | 'right'; italic?: boolean; lineHeight?: number; glow?: number; outline?: number; spacing?: number; caps?: boolean };
 export type MediaLayer = LayerBase & { type: 'media'; mediaId: string; kind: 'video' | 'image'; in: number; width: number; volume: number; muted: boolean; filter: string; adjust: Adjust };
 export type StickerLayer = LayerBase & { type: 'sticker'; emoji: string; size: number };
 export type EffectLayer = LayerBase & { type: 'effect'; effect: EffectType; intensity: number };
@@ -27,7 +27,7 @@ export type AudioLayer = { id: string; type: 'audio'; start: number; duration: n
 export type Layer = TextLayer | MediaLayer | StickerLayer | EffectLayer | AudioLayer;
 export type VisualLayer = TextLayer | MediaLayer | StickerLayer;
 
-export type EffectType = 'blur' | 'mono' | 'sepia' | 'invert' | 'shake' | 'pulse' | 'flash' | 'glitch' | 'vignette' | 'rainbow' | 'darken';
+export type EffectType = 'blur' | 'mono' | 'sepia' | 'invert' | 'shake' | 'pulse' | 'flash' | 'glitch' | 'vignette' | 'rainbow' | 'darken' | 'letterbox' | 'strobe' | 'punch' | 'dreamy' | 'push' | 'warm' | 'cool' | 'rgb';
 export type Aspect = '16:9' | '9:16' | '1:1' | '4:5' | '4:3';
 export type ProjectFont = { id: string; family: string; name: string };
 export type Project = { id: string; name: string; aspect: Aspect; background: string; imageDuration: number; clips: Clip[]; layers: Layer[]; media: Record<string, MediaAsset>; fonts?: ProjectFont[]; createdAt: number; updatedAt: number };
@@ -105,15 +105,21 @@ export function adjustCss(a: Adjust) {
 export const lookCss = (filter: string, a: Adjust, extra = '') => [filterCss(filter), adjustCss(a), extra].filter(Boolean).join(' ').trim() || 'none';
 export const temperatureTint = (t: number) => t > 0 ? `rgba(255,140,30,${t / 250})` : t < 0 ? `rgba(40,130,255,${-t / 250})` : '';
 
-export const EFFECTS: { id: EffectType; name: string }[] = [
-  { id: 'blur', name: 'Blur' }, { id: 'mono', name: 'Black & White' }, { id: 'sepia', name: 'Sepia' }, { id: 'invert', name: 'Invert' },
-  { id: 'shake', name: 'Shake' }, { id: 'pulse', name: 'Zoom Pulse' }, { id: 'flash', name: 'Flash' }, { id: 'glitch', name: 'Glitch' },
-  { id: 'vignette', name: 'Vignette' }, { id: 'rainbow', name: 'Color Cycle' }, { id: 'darken', name: 'Darken' },
+export type EffectGroup = 'Cinematic' | 'Motion' | 'Color' | 'Glitch & Light';
+export const EFFECTS: { id: EffectType; name: string; group: EffectGroup; css: string }[] = [
+  { id: 'letterbox', name: 'Cinema Bars', group: 'Cinematic', css: '' }, { id: 'dreamy', name: 'Dreamy', group: 'Cinematic', css: 'blur(1.5px) brightness(1.15) saturate(1.2)' },
+  { id: 'punch', name: 'Punch', group: 'Cinematic', css: 'contrast(1.4) saturate(1.4)' }, { id: 'vignette', name: 'Vignette', group: 'Cinematic', css: 'brightness(.85)' }, { id: 'darken', name: 'Darken', group: 'Cinematic', css: 'brightness(.5)' },
+  { id: 'shake', name: 'Shake', group: 'Motion', css: '' }, { id: 'pulse', name: 'Zoom Pulse', group: 'Motion', css: '' }, { id: 'push', name: 'Slow Push', group: 'Motion', css: '' }, { id: 'blur', name: 'Blur', group: 'Motion', css: 'blur(3px)' },
+  { id: 'mono', name: 'Black & White', group: 'Color', css: 'grayscale(1)' }, { id: 'sepia', name: 'Sepia', group: 'Color', css: 'sepia(1)' }, { id: 'warm', name: 'Warm Tone', group: 'Color', css: 'sepia(.35) saturate(1.4) hue-rotate(-10deg)' },
+  { id: 'cool', name: 'Cool Tone', group: 'Color', css: 'saturate(1.2) hue-rotate(20deg)' }, { id: 'invert', name: 'Invert', group: 'Color', css: 'invert(1)' }, { id: 'rainbow', name: 'Color Cycle', group: 'Color', css: 'hue-rotate(120deg) saturate(1.6)' },
+  { id: 'glitch', name: 'Glitch', group: 'Glitch & Light', css: 'hue-rotate(90deg) saturate(2)' }, { id: 'rgb', name: 'RGB Split', group: 'Glitch & Light', css: 'saturate(1.8) contrast(1.2)' },
+  { id: 'flash', name: 'Flash', group: 'Glitch & Light', css: 'brightness(1.8)' }, { id: 'strobe', name: 'Strobe', group: 'Glitch & Light', css: 'brightness(1.5) contrast(1.3)' },
 ];
+export const EFFECT_GROUPS: EffectGroup[] = ['Cinematic', 'Motion', 'Color', 'Glitch & Light'];
 export const effectName = (id: EffectType) => EFFECTS.find(e => e.id === id)?.name ?? id;
 // Returns CSS filter + transform (in % of frame / deg) + overlay for the active effect layers.
 export function effectState(layers: Layer[], t: number) {
-  const filters: string[] = []; let dx = 0; let dy = 0; let scale = 1; let flash = 0; let vignette = 0; let darken = 0;
+  const filters: string[] = []; let dx = 0; let dy = 0; let scale = 1; let flash = 0; let vignette = 0; let darken = 0; let letterbox = 0;
   layers.forEach(l => {
     if (l.type !== 'effect' || !isActive(l, t)) return;
     const k = l.intensity / 100; const local = t - l.start;
@@ -129,9 +135,17 @@ export function effectState(layers: Layer[], t: number) {
       case 'glitch': { const s = Math.floor(local * 14); const r = Math.abs(Math.sin(s * 12.9898) * 43758.5453) % 1; if (r > 0.55) { dx += (r - 0.75) * 6 * k; filters.push(`hue-rotate(${Math.round(r * 160)}deg) saturate(${1 + k})`); } break; }
       case 'vignette': vignette = Math.max(vignette, k); break;
       case 'darken': darken = Math.max(darken, k * 0.85); break;
+      case 'letterbox': letterbox = Math.max(letterbox, k * 12 * Math.min(1, local / 0.4)); break;
+      case 'strobe': flash = Math.max(flash, Math.floor(local * 8) % 2 ? 0 : 0.7 * k); break;
+      case 'punch': filters.push(`contrast(${1 + 0.4 * k}) saturate(${1 + 0.5 * k})`); break;
+      case 'dreamy': filters.push(`blur(${(k * 2).toFixed(2)}px) brightness(${1 + 0.15 * k}) saturate(${1 + 0.25 * k})`); break;
+      case 'push': scale *= 1 + Math.min(1, local / Math.max(0.5, l.duration)) * 0.15 * k; break;
+      case 'warm': filters.push(`sepia(${0.35 * k}) saturate(${1 + 0.3 * k}) hue-rotate(${-10 * k}deg)`); break;
+      case 'cool': filters.push(`saturate(${1 + 0.2 * k}) hue-rotate(${20 * k}deg)`); break;
+      case 'rgb': { const s = Math.sin(local * 30); dx += s * 0.6 * k; filters.push(`saturate(${1 + 0.8 * k}) hue-rotate(${Math.round(s * 25 * k)}deg)`); break; }
     }
   });
-  return { filter: filters.join(' '), dx, dy, scale, flash, vignette, darken };
+  return { filter: filters.join(' '), dx, dy, scale, flash, vignette, darken, letterbox };
 }
 
 // Animation in/out for visual layers.
@@ -198,7 +212,7 @@ export const FONTS = [
 export const fontWeight = (font: string, bold: boolean) => (FONTS.find(f => f.id === font)?.weight ?? 700) >= 700 ? (bold ? 800 : 600) : 400;
 export const TEXT_STYLES: { id: TextStyle; name: string }[] = [
   { id: 'plain', name: 'Plain' }, { id: 'glow', name: 'Glow' }, { id: 'neon', name: 'Neon' }, { id: 'outline', name: 'Outline' },
-  { id: 'neon-outline', name: 'Outline glow' }, { id: 'shadow', name: 'Shadow' }, { id: 'gradient', name: 'Gradient' }, { id: 'box', name: 'Label' },
+  { id: 'neon-outline', name: 'Outline glow' }, { id: 'shadow', name: 'Shadow' }, { id: 'gradient', name: 'Gradient' }, { id: 'box', name: 'Label' }, { id: 'stroke', name: 'Stroke' }, { id: 'extrude', name: '3D' },
 ];
 export const SWATCHES = ['#ffffff', '#111111', '#ffd60a', '#ff3b30', '#ff2d92', '#bf5af2', '#0a84ff', '#30d5ff', '#32d74b', '#ff9f0a'];
 export const STICKERS = ['🔥', '✨', '❤️', '😂', '😍', '👀', '💯', '⭐', '🎉', '👑', '💥', '⚡', '🌈', '☀️', '🌙', '🎵', '📍', '✅', '👉', '🙌', '😎', '🤯', '🥳', '💀'];
@@ -207,6 +221,9 @@ export const TEXT_PRESETS: { name: string; patch: Partial<TextLayer> }[] = [
   { name: 'Cinematic Blue', patch: { text: 'THE NEXT CHAPTER', font: 'Bebas Neue', style: 'neon-outline', color: '#30d5ff', accent: '#30d5ff', size: 12, y: 72, animIn: 'none', animOut: 'none' } },
   { name: 'Ember Outline', patch: { text: 'MEMES ABOUT ME?', font: 'Anton', style: 'neon-outline', color: '#ff9f0a', accent: '#ff3b30', size: 10, y: 65, animIn: 'none', animOut: 'none' } },
   { name: 'Clean Caption', patch: { text: 'WHAT ARE YOU?', font: 'Manrope', style: 'glow', color: '#ffffff', accent: '#ff9f0a', size: 7, y: 58, glow: 35, animIn: 'none', animOut: 'none' } },
+  { name: 'Hero Stroke', patch: { text: 'LEGENDARY', font: 'Anton', style: 'stroke', color: '#ffffff', accent: '#111111', outline: 8, size: 12, animIn: 'pop' } },
+  { name: '3D Title', patch: { text: 'NEXT LEVEL', font: 'Bebas Neue', style: 'extrude', color: '#ffd60a', accent: '#ff3b30', size: 13, animIn: 'zoom' } },
+  { name: 'Wide Cinema', patch: { text: 'A FILM BY YOU', font: 'Manrope', style: 'glow', color: '#ffffff', accent: '#ffffff', glow: 25, spacing: 40, size: 5, animIn: 'fade' } },
   { name: 'Neon Glow', patch: { text: 'NEON', font: 'Righteous', style: 'neon', color: '#ffffff', accent: '#ff2d92', animIn: 'fade' } },
   { name: 'Bold Title', patch: { text: 'BIG MOMENT', font: 'Anton', style: 'shadow', color: '#ffffff', accent: '#000000', animIn: 'pop' } },
   { name: 'Golden Glow', patch: { text: 'Golden hour', font: 'Playfair Display', style: 'glow', color: '#fff4d6', accent: '#ffb000', animIn: 'zoom' } },
@@ -229,4 +246,4 @@ export const formatClock = (s: number) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 };
 export const formatShort = (s: number) => { const v = Math.max(0, s); return `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, '0')}`; };
-export const layerLabel = (l: Layer, media: Record<string, MediaAsset>) => l.type === 'text' ? l.text : l.type === 'sticker' ? l.emoji : l.type === 'effect' ? `Effect - ${effectName(l.effect)}` : l.type === 'audio' ? l.name : media[l.mediaId]?.name ?? 'Media';
+export const layerLabel = (l: Layer, media: Record<string, MediaAsset>) => l.type === 'text' ? l.text : l.type === 'sticker' ? l.emoji : l.type === 'effect' ? `Effect - ${effectName(l.effect)}`  : l.type === 'audio' ? l.name : media[l.mediaId]?.name ?? 'Media';
