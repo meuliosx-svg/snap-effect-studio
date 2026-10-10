@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
 import { RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { aspectValue, clamp, clipAt, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type Layer, type MediaAsset, type Project, type Selection, type VisualLayer } from './model';
+import { aspectValue, clamp, clipAt, clipBox, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type Layer, type MediaAsset, type Project, type Selection, type VisualLayer } from './model';
 import { useClock, type Clock } from './clock';
 import { mediaUrl } from './storage';
 
@@ -38,14 +38,12 @@ function AudioEl(props: SyncOpts & { src: string }) {
 const idleFx: FrameFx = { opacity: 1, tx: 0, ty: 0, scale: 1, rotate: 0, clipRight: 0 };
 
 function ClipView({ clip, asset, sourceTime, playing, fx, progress, size, hidden }: { clip: Clip; asset: MediaAsset; sourceTime: number; playing: boolean; fx: FrameFx; progress: number; size: { w: number; h: number }; hidden?: boolean | undefined }) {
-  const rotated = Math.abs(clip.rotate % 180) === 90;
-  const aw = rotated ? asset.height : asset.width; const ah = rotated ? asset.width : asset.height;
-  const s = Math.min(size.w / Math.max(1, aw), size.h / Math.max(1, ah)); const dw = asset.width * s; const dh = asset.height * s;
+  const { dw, dh, ox, oy } = clipBox(asset, clip, size.w, size.h);
   const m = motionTransform(clip.motion, progress);
   const sx = fx.scale * m.scale * (clip.flipH ? -1 : 1); const sy = fx.scale * m.scale * (clip.flipV ? -1 : 1);
   const style: CSSProperties = {
     width: dw, height: dh, opacity: hidden ? 0 : fx.opacity, filter: lookCss(clip.filter, clip.adjust),
-    transform: `translate(-50%, -50%) translate(${(fx.tx / 100) * size.w}px, ${(fx.ty / 100) * size.h}px) rotate(${fx.rotate + clip.rotate}deg) scale(${sx}, ${sy}) translateX(${(m.tx / 100) * size.w}px)`,
+    transform: `translate(-50%, -50%) translate(${(fx.tx / 100) * size.w + ox}px, ${(fx.ty / 100) * size.h + oy}px) rotate(${fx.rotate + clip.rotate}deg) scale(${sx}, ${sy}) translateX(${(m.tx / 100) * size.w}px)`,
   };
   const tint = temperatureTint(clip.adjust.temperature);
   return <div className="clip-frame" style={{ clipPath: fx.clipRight ? `inset(0 ${fx.clipRight}% 0 0)` : undefined, visibility: hidden ? 'hidden' : undefined }}>

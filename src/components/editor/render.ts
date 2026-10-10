@@ -1,5 +1,5 @@
 // Canvas renderer used for export and frame capture. Mirrors the on-screen preview.
-import { aspectValue, clipAt, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type MediaLayer, type PlacedClip, type Project, type TextLayer } from './model';
+import { aspectValue, clipAt, clipBox, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type MediaLayer, type PlacedClip, type Project, type TextLayer } from './model';
 
 export type SourceGetter = (key: string) => CanvasImageSource | null;
 const idleFx: FrameFx = { opacity: 1, tx: 0, ty: 0, scale: 1, rotate: 0, clipRight: 0 };
@@ -20,13 +20,11 @@ function drawVignette(ctx: CanvasRenderingContext2D, W: number, H: number, k: nu
 function drawClip(ctx: CanvasRenderingContext2D, p: Project, placed: PlacedClip, t: number, fx: FrameFx, effectFilter: string, get: SourceGetter, W: number, H: number) {
   const clip: Clip = placed.clip; const asset = p.media[clip.mediaId]; const el = get(clip.kind === 'video' ? clip.id : clip.mediaId);
   if (!asset || !el || fx.opacity <= 0) return;
-  const rotated = Math.abs(clip.rotate % 180) === 90;
-  const aw = rotated ? asset.height : asset.width; const ah = rotated ? asset.width : asset.height;
-  const s = Math.min(W / aw, H / ah); const dw = asset.width * s; const dh = asset.height * s;
+  const { dw, dh, ox, oy } = clipBox(asset, clip, W, H);
   const m = motionTransform(clip.motion, (t - placed.start) / Math.max(0.1, placed.end - placed.start));
   ctx.save(); ctx.globalAlpha = fx.opacity;
   if (fx.clipRight > 0) { ctx.beginPath(); ctx.rect(0, 0, W * (1 - fx.clipRight / 100), H); ctx.clip(); }
-  ctx.translate(W / 2 + (fx.tx / 100) * W, H / 2 + (fx.ty / 100) * H);
+  ctx.translate(W / 2 + (fx.tx / 100) * W + ox, H / 2 + (fx.ty / 100) * H + oy);
   ctx.rotate(((fx.rotate + clip.rotate) * Math.PI) / 180);
   ctx.scale(fx.scale * m.scale * (clip.flipH ? -1 : 1), fx.scale * m.scale * (clip.flipV ? -1 : 1));
   ctx.translate((m.tx / 100) * W, 0);
