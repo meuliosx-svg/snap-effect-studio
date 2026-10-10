@@ -41,7 +41,7 @@ function drawMedia(ctx: CanvasRenderingContext2D, p: Project, l: MediaLayer, t: 
   const asset = p.media[l.mediaId]; const el = get(l.kind === 'video' ? l.id : l.mediaId);
   if (!asset || !el) return;
   const a = layerAnim(l, t); const dw = (l.width / 100) * W; const dh = dw * (asset.height / Math.max(1, asset.width));
-  ctx.save(); ctx.globalAlpha = a.opacity; ctx.translate((l.x / 100) * W, (l.y / 100) * H + (a.dy / 100) * H); ctx.rotate((l.rotation * Math.PI) / 180); ctx.scale(a.scale, a.scale);
+  ctx.save(); ctx.globalAlpha = a.opacity; ctx.translate(((l.x + a.dx) / 100) * W, ((l.y + a.dy) / 100) * H); ctx.rotate(((l.rotation + a.rotation) * Math.PI) / 180); ctx.scale(a.scale, a.scale);
   ctx.filter = lookCss(l.filter, l.adjust, effectFilter); ctx.drawImage(el, -dw / 2, -dh / 2, dw, dh); ctx.filter = 'none'; ctx.restore();
 }
 
@@ -50,7 +50,7 @@ export function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, t: number,
   const fs = (l.size / 100) * H; const lineH = fs * (l.lineHeight ?? 1.12); const glow = (l.glow ?? 100) / 100;
   let remaining = a.chars; const lines = l.text.split('\n').map(line => { const part = line.slice(0, Math.max(0, remaining)); remaining -= line.length + 1; return part; });
   ctx.save(); ctx.globalAlpha = a.opacity;
-  ctx.translate((l.x / 100) * W, (l.y / 100) * H + (a.dy / 100) * H); ctx.rotate((l.rotation * Math.PI) / 180); ctx.scale(a.scale, a.scale);
+  ctx.translate(((l.x + a.dx) / 100) * W, ((l.y + a.dy) / 100) * H); ctx.rotate(((l.rotation + a.rotation) * Math.PI) / 180); ctx.scale(a.scale, a.scale);
   ctx.font = `${l.italic ? 'italic ' : ''}${fontWeight(l.font, l.bold)} ${fs}px "${l.font}"`; ctx.textBaseline = 'middle'; ctx.textAlign = l.align;
   (ctx as unknown as { letterSpacing: string }).letterSpacing = `${((l.spacing ?? 0) / 100) * fs}px`; ctx.imageSmoothingQuality = 'high';
   if (l.caps) lines.forEach((ln, i) => { lines[i] = ln.toUpperCase(); });
@@ -96,7 +96,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, p: Project, t: number, 
   p.layers.forEach(l => {
     if (!isActive(l, t)) return;
     if (l.type === 'text') drawText(ctx, l, t, W, H);
-    if (l.type === 'sticker') { const a = layerAnim(l, t); ctx.save(); ctx.globalAlpha = a.opacity; ctx.translate((l.x / 100) * W, (l.y / 100) * H + (a.dy / 100) * H); ctx.rotate((l.rotation * Math.PI) / 180); ctx.scale(a.scale, a.scale); ctx.font = `${(l.size / 100) * H}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(l.emoji, 0, 0); ctx.restore(); }
+    if (l.type === 'sticker') { const a = layerAnim(l, t); ctx.save(); ctx.globalAlpha = a.opacity; ctx.translate(((l.x + a.dx) / 100) * W, ((l.y + a.dy) / 100) * H); ctx.rotate(((l.rotation + a.rotation) * Math.PI) / 180); ctx.scale(a.scale, a.scale); ctx.font = `${(l.size / 100) * H}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(l.emoji, 0, 0); ctx.restore(); }
   });
   if (fx.letterbox) { const b = (fx.letterbox / 100) * H; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, b); ctx.fillRect(0, H - b, W, b); }
   if (fx.flash) { ctx.fillStyle = `rgba(255,255,255,${fx.flash})`; ctx.fillRect(0, 0, W, H); }
