@@ -8,3 +8,8 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Editor architecture
+- Keep local media and edit state in the browser, with explicit project downloads; local files must not be uploaded implicitly.
+- Keep shared editor types and formatting in a browser-safe model module; isolate draggable canvas rendering behind ClientOnly for SSR safety.
+- Export compositions through canvas capture and MediaRecorder with capability checks; label the actual output format and audio limitations.

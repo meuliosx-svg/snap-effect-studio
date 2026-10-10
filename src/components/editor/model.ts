@@ -1,0 +1,6 @@
+export type TextLayer = { id: string; text: string; x: number; y: number; width: number; height: number; fontSize: number; style: 'clean' | 'glow' | 'outline'; start: number; end: number };
+export type MediaItem = { id: string; name: string; url: string; type: 'image' | 'video'; duration: number };
+export type Adjustments = { brightness: number; contrast: number; saturation: number; warmth: number };
+export const initialText: TextLayer[] = [{ id: 'title', text: 'WANDER', x: 21, y: 36, width: 58, height: 24, fontSize: 72, style: 'clean', start: 0, end: 24 }];
+export const getFilter = (a: Adjustments, effect: string) => `brightness(${a.brightness / 100}) contrast(${a.contrast / 100}) saturate(${a.saturation / 100}) sepia(${a.warmth / 200}) ${effect === 'Mono' ? 'grayscale(1)' : effect === 'Dream' ? 'blur(1px)' : effect === 'Vintage' ? 'sepia(.35)' : effect === 'Vivid' ? 'saturate(1.5) contrast(1.1)' : ''}`;
+export const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}.${Math.floor((seconds % 1) * 100).toString().padStart(2, '0')}`;
