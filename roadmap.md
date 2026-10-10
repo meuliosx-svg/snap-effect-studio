@@ -1,4 +1,6 @@
 # FRAME editor
+- [ ] Current request: visible scrollable side tools, compact ordered timeline, cinematic text options and local font imports.
+- [ ] Current request: accessible slow-motion/speed and ratio controls; verify project saving and browser editing flow.
 - [x] First version: workspace, text, effects, color, export.
 - [ ] Rebuild layout to match the KineMaster-style reference (left tool column, preview, round menu, timeline with centered playhead).
 - [ ] Start empty — no demo pictures; projects saved on device with a projects home screen.
