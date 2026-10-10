@@ -248,3 +248,27 @@ svg { width: 18px; height: 18px; }
 @media (max-width: 480px) { .home-new { grid-template-columns: repeat(3, 1fr); } .export-btn { padding: 8px; } .ed-name { font-size: 11px; } .pill { padding: 6px; } .ed-timeline .tl-row.main { height: 56px; } }
 @media (max-height: 560px) { .ed-workspace { grid-template-rows: minmax(0,1fr) 40px min(40%, var(--timeline-height, 150px)); } .ed-dock { height: 58px; } .ed-top { height: 44px; } .ed-transport { height: 40px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+.text-menu { display: flex; flex-direction: column; gap: 0; }
+.text-menu .txt-input { margin-bottom: 12px; border-radius: 6px; }
+.text-section { border-bottom: 1px solid var(--border); }
+.text-section summary { display: flex; align-items: center; gap: 8px; padding: 14px 2px; cursor: pointer; font-weight: 600; list-style: none; }
+.text-section summary::-webkit-details-marker { display: none; }
+.text-section summary small { margin-left: auto; color: var(--muted-foreground); font-weight: 400; font-size: 11px; }
+.text-section summary svg { margin-left: auto; width: 16px; height: 16px; }
+.text-section summary small + svg { margin-left: 0; }
+.text-section[open] summary svg { transform: rotate(90deg); }
+.text-section-body { padding: 0 2px 14px; }
+.text-template-list .presets { display: flex; flex-direction: column; gap: 0; }
+.text-template-list .preset { height: 64px; flex-direction: row; justify-content: space-between; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; gap: 14px; }
+.text-template-list .preset .txt { max-width: 65%; overflow: hidden; font-size: 14px; }
+.text-template-list .preset small { white-space: normal; text-align: right; }
+.text-add-row { width: 100%; justify-content: flex-start; min-height: 44px; color: var(--primary); }
+.text-add-row svg:last-child { margin-left: auto; }
+.animation-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.animation-tabs button { border-radius: 0; border-bottom: 2px solid transparent; }
+.animation-tabs .on { color: var(--primary); border-bottom-color: var(--primary); }
+.animation-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
+.animation-row { min-height: 40px; width: 100%; justify-content: space-between; font-weight: 400; border-radius: 4px; }
+.animation-row.on { background: var(--secondary); color: var(--primary); }
+.animation-row svg { width: 14px; height: 14px; }

@@ -15,3 +15,5 @@
 - Export compositions through canvas capture and MediaRecorder with capability checks; label the actual output format and audio limitations.
 - Store imported font binaries alongside local media and font descriptors in each project; load FontFace resources before preview reopening and export so typography survives reloads.
 - Keep tool navigation beside the workspace and partition timeline lanes by content type so editing controls do not consume timeline height.
+
+- Evaluate layer animations through the shared browser-safe model for both preview and canvas export so saved animation controls produce matching output.
