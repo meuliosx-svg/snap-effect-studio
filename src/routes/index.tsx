@@ -33,7 +33,7 @@ function Editor() {
   const [media, setMedia] = useState(demoMedia);
   const [currentMedia, setCurrentMedia] = useState(demoMedia[0]);
   const [layers, setLayers] = useState<TextLayer[]>(initialText);
-  const [selected, setSelected] = useState('video');
+  const [selected, setSelected] = useState('title');
   const [name, setName] = useState('Coastal escape');
   const [time, setTime] = useState(4.2);
   const [duration, setDuration] = useState(24);
@@ -87,7 +87,7 @@ function Editor() {
   const updateLayer = (id: string, patch: Partial<TextLayer>) => { if (lockedText) { setNotice('Unlock the text track to edit it.'); return; } remember(); setLayers(previous => previous.map(l => l.id === id ? { ...l, ...patch } : l)); };
   const undo = () => { const previous = history.at(-1); if (!previous) return; setFuture(f => [...f, layers]); setLayers(previous); setHistory(h => h.slice(0, -1)); };
   const redo = () => { const next = future.at(-1); if (!next) return; setHistory(h => [...h, layers]); setLayers(next); setFuture(f => f.slice(0, -1)); };
-  const addText = (style: TextLayer['style'] = 'clean', text = 'Your story') => { remember(); const id = `text-${Date.now()}`; setLayers(previous => [...previous, { id, text, x: 15, y: 35, width: 70, height: 25, fontSize: 64, style, start: 0, end: duration }]); setSelected(id); setTool('Text'); setPanelOpen(false); setInspectorTab('Transform'); };
+  const addText = (style: TextLayer['style'] = 'clean', text = 'Your story') => { remember(); const id = `text-${Date.now()}`; setLayers(previous => [...previous, { id, text, x: 15, y: layers.length ? 64 : 35, width: 70, height: 22, fontSize: 64, style, start: 0, end: duration }]); setSelected(id); setTool('Text'); setPanelOpen(false); setInspectorTab('Transform'); };
   const selectTool = (next: string) => { setTool(next); setPanelOpen(true); if (next === 'Color') { setInspectorTab('Color'); setPropertiesOpen(true); setPanelOpen(false); } };
   const chooseMedia = (item: MediaItem) => { setCurrentMedia(item); setDuration(item.duration); setTime(0); setPlaying(false); setSelected('video'); setPanelOpen(false); setSaved(false); };
   const importMedia = async (files: FileList | null) => {
