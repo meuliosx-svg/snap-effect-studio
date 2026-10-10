@@ -62,5 +62,5 @@ export async function importFile(file: Blob & { name?: string }, nameOverride?: 
     const thumbs = await videoThumbs(url, duration, width, height);
     return { id, name, kind, duration, width, height, thumbs, hasAudio: true };
   }
-  return { id, name, kind, duration, width: 0, height: 0, thumbs: [], peaks: await audioPeaks(file) };
+  return { id, name, kind, duration, width: 0, height: 0, thumbs: [], ...(await audioPeaks(file).then(peaks => peaks ? { peaks } : {})) };
 }
