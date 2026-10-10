@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
 import { RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { aspectValue, clamp, clipAt, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type Layer, type MediaAsset, type Project, type Selection, type VisualLayer } from './model';
+import { aspectValue, clamp, clipAt, clipBox, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type Layer, type MediaAsset, type Project, type Selection, type VisualLayer } from './model';
 import { useClock, type Clock } from './clock';
 import { mediaUrl } from './storage';
 
@@ -38,14 +38,12 @@ function AudioEl(props: SyncOpts & { src: string }) {
 const idleFx: FrameFx = { opacity: 1, tx: 0, ty: 0, scale: 1, rotate: 0, clipRight: 0 };
 
 function ClipView({ clip, asset, sourceTime, playing, fx, progress, size, hidden }: { clip: Clip; asset: MediaAsset; sourceTime: number; playing: boolean; fx: FrameFx; progress: number; size: { w: number; h: number }; hidden?: boolean | undefined }) {
-  const rotated = Math.abs(clip.rotate % 180) === 90;
-  const aw = rotated ? asset.height : asset.width; const ah = rotated ? asset.width : asset.height;
-  const s = Math.min(size.w / Math.max(1, aw), size.h / Math.max(1, ah)); const dw = asset.width * s; const dh = asset.height * s;
+  const { dw, dh, ox, oy } = clipBox(asset, clip, size.w, size.h);
   const m = motionTransform(clip.motion, progress);
   const sx = fx.scale * m.scale * (clip.flipH ? -1 : 1); const sy = fx.scale * m.scale * (clip.flipV ? -1 : 1);
   const style: CSSProperties = {
     width: dw, height: dh, opacity: hidden ? 0 : fx.opacity, filter: lookCss(clip.filter, clip.adjust),
-    transform: `translate(-50%, -50%) translate(${(fx.tx / 100) * size.w}px, ${(fx.ty / 100) * size.h}px) rotate(${fx.rotate + clip.rotate}deg) scale(${sx}, ${sy}) translateX(${(m.tx / 100) * size.w}px)`,
+    transform: `translate(-50%, -50%) translate(${(fx.tx / 100) * size.w + ox}px, ${(fx.ty / 100) * size.h + oy}px) rotate(${fx.rotate + clip.rotate}deg) scale(${sx}, ${sy}) translateX(${(m.tx / 100) * size.w}px)`,
   };
   const tint = temperatureTint(clip.adjust.temperature);
   return <div className="clip-frame" style={{ clipPath: fx.clipRight ? `inset(0 ${fx.clipRight}% 0 0)` : undefined, visibility: hidden ? 'hidden' : undefined }}>
@@ -59,29 +57,42 @@ function ClipView({ clip, asset, sourceTime, playing, fx, progress, size, hidden
 
 type Props = {
   project: Project; clock: Clock; playing: boolean; selection: Selection;
-  onSelect: (s: Selection) => void; onBeginGesture: () => void; onLayerChange: (id: string, patch: Partial<Layer>) => void; onEditText: (id: string) => void;
+  onSelect: (s: Selection) => void; onBeginGesture: () => void; onClipChange: (id: string, patch: Partial<Clip>) => void; onLayerChange: (id: string, patch: Partial<Layer>) => void; onEditText: (id: string) => void;
 };
 
-export default function Preview({ project, clock, playing, selection, onSelect, onBeginGesture, onLayerChange, onEditText }: Props) {
+export default function Preview({ project, clock, playing, selection, onSelect, onBeginGesture, onClipChange, onLayerChange, onEditText }: Props) {
   const t = useClock(clock);
   const wrapRef = useRef<HTMLDivElement>(null); const stageRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 320, h: 180 });
   const [guides, setGuides] = useState({ v: false, h: false });
-  const [view, setView] = useState({ z: 1, x: 0, y: 0 });
-  const zoomBy = (f: number) => setView(v => { const z = clamp(v.z * f, 1, 5); return z === 1 ? { z, x: 0, y: 0 } : { ...v, z }; });
+  // The frame is locked to the ratio. Pinch / ctrl+wheel / drag reframe the current clip inside it.
+  const curRef = useRef<Clip | null>(null);
+  const zoomClip = (f: number) => { const c = curRef.current; if (!c) return; onClipChange(c.id, { zoom: clamp((c.zoom ?? 1) * f, 0.3, 5) }); };
   useEffect(() => {
     const el = wrapRef.current; if (!el) return;
-    const wheel = (e: WheelEvent) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); zoomBy(Math.exp(-e.deltaY * 0.004)); };
+    const wheel = (e: WheelEvent) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); zoomClip(Math.exp(-e.deltaY * 0.004)); };
     el.addEventListener('wheel', wheel, { passive: false }); return () => el.removeEventListener('wheel', wheel);
-  }, []);
-  const touch = useRef<{ d: number; cx: number; cy: number } | null>(null);
+  });
+  const touch = useRef<{ d: number } | null>(null);
   const onTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length !== 2) { touch.current = null; return; }
     const a = e.touches[0]; const b = e.touches[1]; if (!a || !b) return;
-    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); const cx = (a.clientX + b.clientX) / 2; const cy = (a.clientY + b.clientY) / 2;
-    const prev = touch.current;
-    if (prev) setView(v => { const z = clamp(v.z * (d / prev.d), 1, 5); return z === 1 ? { z, x: 0, y: 0 } : { z, x: v.x + cx - prev.cx, y: v.y + cy - prev.cy }; });
-    touch.current = { d, cx, cy };
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    if (touch.current) zoomClip(d / touch.current.d); else onBeginGesture();
+    touch.current = { d };
+  };
+  const panClip = (e: RPointerEvent, c: Clip) => {
+    const stage = stageRef.current?.getBoundingClientRect(); if (!stage) return;
+    const sx = e.clientX; const sy = e.clientY; const x0 = c.panX ?? 0; const y0 = c.panY ?? 0; let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 4) return;
+      if (!moved) { moved = true; onBeginGesture(); }
+      let x = x0 + ((ev.clientX - sx) / stage.width) * 100; let y = y0 + ((ev.clientY - sy) / stage.height) * 100;
+      if (Math.abs(x) < 1.5) x = 0; if (Math.abs(y) < 1.5) y = 0; setGuides({ v: x === 0, h: y === 0 });
+      onClipChange(c.id, { panX: clamp(x, -100, 100), panY: clamp(y, -100, 100) });
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); setGuides({ v: false, h: false }); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
   };
   const aspect = aspectValue(project.aspect);
   useLayoutEffect(() => {
@@ -91,7 +102,7 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
   }, [aspect]);
 
   const placed = placeClips(project.clips); const cur = clipAt(placed, t);
-  const fx = effectState(project.layers, t);
+  const fx = effectState(project.layers, t); curRef.current = cur?.clip ?? null;
   const mounted: { key: string; node: React.ReactNode }[] = [];
   if (cur) {
     const tr = effectiveTransition(placed, cur.index); const local = t - cur.start; const prev = placed[cur.index - 1]; const next = placed[cur.index + 1];
@@ -163,13 +174,13 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
   };
 
   return <div ref={wrapRef} className="stage-wrap" onTouchMove={onTouchMove} onTouchEnd={() => { touch.current = null; }}>
-    <div className="zoom-pill">
-      <button aria-label="Zoom out preview" onClick={() => zoomBy(0.8)}><ZoomOut /></button>
-      <button aria-label="Reset preview zoom" onClick={() => setView({ z: 1, x: 0, y: 0 })}>{Math.round(view.z * 100)}%</button>
-      <button aria-label="Zoom in preview" onClick={() => zoomBy(1.25)}><ZoomIn /></button>
-    </div>
-    <div ref={stageRef} className="stage" style={{ width: size.w, height: size.h, background: project.background, transform: view.z !== 1 ? `translate(${view.x}px, ${view.y}px) scale(${view.z})` : undefined }}
-      onPointerDown={e => { if ((e.target as HTMLElement).closest('.layer-box')) return; onSelect(cur ? { kind: 'clip', id: cur.clip.id } : null); }}>
+    {cur && selection?.kind === 'clip' && selection.id === cur.clip.id && !playing && <div className="zoom-pill">
+      <button aria-label="Zoom out clip" onClick={() => { onBeginGesture(); zoomClip(0.9); }}><ZoomOut /></button>
+      <button aria-label="Reset framing" onClick={() => { onBeginGesture(); onClipChange(cur.clip.id, { zoom: 1, panX: 0, panY: 0 }); }}>{Math.round((cur.clip.zoom ?? 1) * 100)}%</button>
+      <button aria-label="Zoom in clip" onClick={() => { onBeginGesture(); zoomClip(1.1); }}><ZoomIn /></button>
+    </div>}
+    <div ref={stageRef} className="stage" style={{ width: size.w, height: size.h, background: project.background }}
+      onPointerDown={e => { if ((e.target as HTMLElement).closest('.layer-box')) return; if (cur) { onSelect({ kind: 'clip', id: cur.clip.id }); if (!playing) panClip(e, cur.clip); } else onSelect(null); }}>
       <div className="stage-base" style={{ transform: `translate(${fx.dx}%, ${fx.dy}%) scale(${fx.scale})`, filter: fx.filter || undefined }}>
         {mounted.map(m => m.node)}
         {project.layers.map(l => l.type === 'media' ? renderVisual(l) : null)}

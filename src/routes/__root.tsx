@@ -91,7 +91,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Bebas+Neue&family=Anton&family=Playfair+Display:wght@800&family=Permanent+Marker&family=Pacifico&family=Space+Mono:wght@700&family=Righteous&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Bebas+Neue&family=Anton&family=Playfair+Display:wght@800&family=Permanent+Marker&family=Pacifico&family=Space+Mono:wght@700&family=Righteous&family=Montserrat:wght@800&family=Oswald:wght@700&family=Poppins:wght@400;800&family=Archivo+Black&family=Black+Ops+One&family=Bangers&family=Lobster&family=Dancing+Script:wght@700&family=Great+Vibes&family=Satisfy&family=Caveat:wght@700&family=Shadows+Into+Light&family=Orbitron:wght@800&family=Audiowide&family=Monoton&family=Press+Start+2P&family=Bungee&family=Russo+One&family=Teko:wght@700&family=Staatliches&family=Alfa+Slab+One&family=Abril+Fatface&family=Cinzel:wght@800&family=Cormorant+Garamond:wght@700&family=Rubik+Mono+One&family=Syne:wght@800&family=Unbounded:wght@800&family=Kanit:wght@800&family=Fredoka:wght@700&family=Creepster&display=swap" },
     ],
   }),
   shellComponent: RootShell,
