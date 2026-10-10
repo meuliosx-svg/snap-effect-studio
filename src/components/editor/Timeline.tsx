@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { Plus, ArrowLeftRight } from 'lucide-react';
+import { Plus, ArrowLeftRight, Type, Music2 } from 'lucide-react';
 import { clamp, clipLength, formatShort, layerLabel, packLanes, placeClips, projectDuration, type Clip, type Layer, type Project, type Selection } from './model';
 import { Button } from '@/components/ui/button';
 import type { Clock } from './clock';
@@ -8,7 +8,7 @@ type Props = {
   project: Project; clock: Clock; playing: boolean; pps: number; selection: Selection;
   onSelect: (s: Selection) => void; onScrub: (t: number) => void; onBeginGesture: () => void;
   onClipChange: (id: string, patch: Partial<Clip>) => void; onLayerChange: (id: string, patch: Partial<Layer>) => void;
-  onAddMedia: () => void; onZoom: (factor: number) => void;
+  onAddMedia: () => void; onZoom: (factor: number) => void; onAddText: () => void; onAddAudio: () => void;
 };
 
 function drag(e: RPointerEvent, onMove: (dx: number) => void, onStart: () => void) {
@@ -19,7 +19,7 @@ function drag(e: RPointerEvent, onMove: (dx: number) => void, onStart: () => voi
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 }
 
-export default function Timeline({ project, clock, playing, pps, selection, onSelect, onScrub, onBeginGesture, onClipChange, onLayerChange, onAddMedia, onZoom }: Props) {
+export default function Timeline({ project, clock, playing, pps, selection, onSelect, onScrub, onBeginGesture, onClipChange, onLayerChange, onAddMedia, onZoom, onAddText, onAddAudio }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [half, setHalf] = useState(160);
   const lastSet = useRef(-1);
@@ -113,15 +113,17 @@ export default function Timeline({ project, clock, playing, pps, selection, onSe
 
   return <div className="tl" ref={scroller} onScroll={onScroll} onTouchMove={onTouchMove} onTouchEnd={() => { pinch.current = null; }} onPointerDown={() => onSelect(null)}>
     <div className="tl-inner" style={{ width: width + half * 2, paddingLeft: half, paddingRight: half }}>
-      <div className="tl-ruler" style={{ width }}>{ticks.map(s => <span key={s} style={{ left: s * pps }}>{Number.isInteger(s) ? formatShort(s) : '·'}</span>)}</div>
+      <div className="tl-ruler" style={{ width }}>{ticks.map(s => <span key={s} className={Number.isInteger(s) ? 'maj' : 'min'} style={{ left: s * pps }}>{Number.isInteger(s) && (pps >= 30 || s % 2 === 0) ? formatShort(s) : ''}</span>)}</div>
       <div className="tl-row main" style={{ width: width + 60 }}>
         {placed.map(clipBlock)}
         {placed.slice(1).map(pc => <Button variant="ghost" key={`t${pc.clip.id}`} className={`tl-trans ${pc.clip.transition.type !== 'none' ? 'on' : ''} ${isSel('transition', pc.clip.id) ? 'sel' : ''}`} style={{ left: pc.start * pps }} aria-label="Transition" onPointerDown={e => { e.stopPropagation(); onSelect({ kind: 'transition', id: pc.clip.id }); }}><ArrowLeftRight /></Button>)}
         <Button variant="ghost" className="tl-add" style={{ left: mainEnd(placed) * pps + 8 }} aria-label="Add media" onPointerDown={e => e.stopPropagation()} onClick={onAddMedia}><Plus /></Button>
       </div>
-      {lanes.text.map((lane, i) => <div key={`t${i}`} className="tl-row small text-lane" style={{ width }}>{lane.map(layerBlock)}</div>)}
+      {lanes.text.length ? lanes.text.map((lane, i) => <div key={`t${i}`} className="tl-row small text-lane" style={{ width }}>{lane.map(layerBlock)}</div>)
+        : <div className="tl-row small hint"><button className="tl-hint" onPointerDown={e => e.stopPropagation()} onClick={onAddText}><Type /> Add text</button></div>}
       {lanes.visual.map((lane, i) => <div key={`v${i}`} className="tl-row small" style={{ width }}>{lane.map(layerBlock)}</div>)}
-      {lanes.audio.map((lane, i) => <div key={`a${i}`} className="tl-row small" style={{ width }}>{lane.map(layerBlock)}</div>)}
+      {lanes.audio.length ? lanes.audio.map((lane, i) => <div key={`a${i}`} className="tl-row small" style={{ width }}>{lane.map(layerBlock)}</div>)
+        : <div className="tl-row small hint"><button className="tl-hint" onPointerDown={e => e.stopPropagation()} onClick={onAddAudio}><Music2 /> Add audio</button></div>}
     </div>
   </div>;
 }
