@@ -1,3 +1,4 @@
+import { removeBackground } from './removeBg';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Minimize2, Type, Smile, Sparkles, Palette, SlidersHorizontal, Crop, Trash2, Scissors, Copy, Gauge, Volume2, Wand2, Film, Layers, Music2, Mic, Square, ChevronLeft, ChevronRight, RotateCw, FlipHorizontal, FlipVertical, Pencil, Clapperboard, ImagePlus, Download, X, ZoomIn, ZoomOut, Check, Loader2, Camera, ArrowLeftRight } from 'lucide-react';
 import Preview, { unlockMedia } from './Preview';
@@ -212,7 +213,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     <section className="ed-stage">
 
       <div className="ed-preview">
-        <Preview project={project} clock={clock} playing={playing} selection={selection} onSelect={s => { setSelection(s); }} onBeginGesture={beginGesture} onLayerChange={(id, patch) => patchLayer(id, patch)} onEditText={id => { setSelection({ kind: 'layer', id }); setSheet('textEdit'); }} />
+        <Preview project={project} clock={clock} playing={playing} selection={selection} onSelect={s => { setSelection(s); }} onBeginGesture={beginGesture} onClipChange={(id, patch) => patchClip(id, patch)} onLayerChange={(id, patch) => patchLayer(id, patch)} onEditText={id => { setSelection({ kind: 'layer', id }); setSheet('textEdit'); }} />
       </div>
     </section>
 
@@ -342,10 +343,17 @@ function SheetBody(b: BodyProps) {
       </div>
       <p className="lbl">Motion</p>
       <Chips<Motion> items={[{ id: 'none', name: 'None' }, { id: 'zoom-in', name: 'Zoom in' }, { id: 'zoom-out', name: 'Zoom out' }, { id: 'pan-left', name: 'Pan left' }, { id: 'pan-right', name: 'Pan right' }]} value={selClip.motion} onPick={v => patchClip(selClip.id, { motion: v }, true)} />
+      <p className="lbl">Frame</p>
+      <Chips<'fit' | 'fill'> items={[{ id: 'fit', name: 'Fit' }, { id: 'fill', name: 'Fill frame' }]} value={selClip.fit ?? 'fit'} onPick={v => patchClip(selClip.id, { fit: v, zoom: 1, panX: 0, panY: 0 }, true)} />
+      <Slider label="Zoom" value={Math.round((selClip.zoom ?? 1) * 100)} min={30} max={500} unit="%" onStart={beginGesture} onChange={v => patchClip(selClip.id, { zoom: v / 100 })} />
+      <Slider label="Position X" value={Math.round(selClip.panX ?? 0)} min={-100} max={100} onStart={beginGesture} onChange={v => patchClip(selClip.id, { panX: v })} />
+      <Slider label="Position Y" value={Math.round(selClip.panY ?? 0)} min={-100} max={100} onStart={beginGesture} onChange={v => patchClip(selClip.id, { panY: v })} />
+      {selClip.kind === 'image' && <RemoveBgButton asset={project.media[selClip.mediaId]} onDone={a => apply(p => ({ ...p, media: { ...p.media, [a.id]: a }, clips: p.clips.map(c => c.id === selClip.id ? { ...c, mediaId: a.id } : c) }))} flash={b.flash} />}
       {selClip.kind === 'image' && <Slider label="Duration" value={selClip.out} min={0.5} max={30} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchClip(selClip.id, { out: v })} />}
     </>;
     if (selLayer && selLayer.type !== 'audio') return <>
       <Slider label="Opacity" value={Math.round(selLayer.opacity * 100)} min={0} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { opacity: v / 100 })} />
+ {selLayer.type === 'media' && selLayer.kind === 'image' && <RemoveBgButton asset={project.media[selLayer.mediaId]} onDone={a => apply(p => ({ ...p, media: { ...p.media, [a.id]: a }, layers: p.layers.map(l => l.id === selLayer.id ? { ...l, mediaId: a.id } as Layer : l) }))} flash={b.flash} />}
       {selLayer.type === 'media' && <Slider label="Size" value={selLayer.width} min={5} max={300} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { width: v })} />}
       <Slider label="Rotation" value={selLayer.rotation} min={-180} max={180} unit="°" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { rotation: v })} />
     </>;
@@ -428,4 +436,15 @@ function ExportPanel({ project, at, flash }: { project: Project; at: () => numbe
       : <Button variant="ghost" className="export-btn big" onClick={() => void run()}><Download /> Export video</Button>}
     <Button variant="ghost" className="ghost" onClick={() => void frame()}><Camera /> Save current frame as photo</Button>
   </>;
+}
+
+function RemoveBgButton({ asset, onDone, flash }: { asset: MediaAsset | undefined; onDone: (a: MediaAsset) => void; flash: (m: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  if (!asset) return null;
+  return <Button variant="ghost" className="chip wide" disabled={busy} onClick={async () => {
+    setBusy(true); flash('Removing background… first time takes a moment');
+    try { onDone(await removeBackground(asset)); flash('Background removed'); }
+    catch (e) { flash(e instanceof Error ? e.message : 'Could not remove background'); }
+    finally { setBusy(false); }
+  }}><Eraser /> {busy ? 'Removing background…' : 'Remove background'}</Button>;
 }
