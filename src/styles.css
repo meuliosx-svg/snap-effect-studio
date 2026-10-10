@@ -225,7 +225,7 @@ svg { width: 18px; height: 18px; }
 .fx-letterbox .fx-thumb { box-shadow: inset 0 14px 0 black, inset 0 -14px 0 black; } .fx-vignette .fx-thumb { box-shadow: inset 0 0 22px black; }
 .style-tile { background: var(--stage); border: 2px solid transparent; border-radius: 10px; padding: 10px 4px 6px; } .style-tile .txt { font-size: 26px; }
 .ed-stage .stage-wrap { position: relative; overflow: hidden; }
-.stage { transition: transform .08s linear; }
+
 .txt { text-rendering: geometricPrecision; -webkit-font-smoothing: antialiased; font-kerning: normal; }
 .txt-stroke { -webkit-text-stroke: calc(var(--outline, .045em) * 2) var(--a); paint-order: stroke fill; }
 .txt-extrude { text-shadow: .01em .01em 0 var(--a), .02em .02em 0 var(--a), .03em .03em 0 var(--a), .04em .04em 0 var(--a), .05em .05em 0 var(--a), .06em .06em .04em oklch(0 0 0 / .5); }
