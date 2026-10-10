@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
-import { RotateCw } from 'lucide-react';
+import { RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
 import { aspectValue, clamp, clipAt, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type Layer, type MediaAsset, type Project, type Selection, type VisualLayer } from './model';
 import { useClock, type Clock } from './clock';
 import { mediaUrl } from './storage';
@@ -67,6 +67,22 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
   const wrapRef = useRef<HTMLDivElement>(null); const stageRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 320, h: 180 });
   const [guides, setGuides] = useState({ v: false, h: false });
+  const [view, setView] = useState({ z: 1, x: 0, y: 0 });
+  const zoomBy = (f: number) => setView(v => { const z = clamp(v.z * f, 1, 5); return z === 1 ? { z, x: 0, y: 0 } : { ...v, z }; });
+  useEffect(() => {
+    const el = wrapRef.current; if (!el) return;
+    const wheel = (e: WheelEvent) => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); zoomBy(Math.exp(-e.deltaY * 0.004)); };
+    el.addEventListener('wheel', wheel, { passive: false }); return () => el.removeEventListener('wheel', wheel);
+  }, []);
+  const touch = useRef<{ d: number; cx: number; cy: number } | null>(null);
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2) { touch.current = null; return; }
+    const a = e.touches[0]; const b = e.touches[1]; if (!a || !b) return;
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); const cx = (a.clientX + b.clientX) / 2; const cy = (a.clientY + b.clientY) / 2;
+    const prev = touch.current;
+    if (prev) setView(v => { const z = clamp(v.z * (d / prev.d), 1, 5); return z === 1 ? { z, x: 0, y: 0 } : { z, x: v.x + cx - prev.cx, y: v.y + cy - prev.cy }; });
+    touch.current = { d, cx, cy };
+  };
   const aspect = aspectValue(project.aspect);
   useLayoutEffect(() => {
     const el = wrapRef.current; if (!el) return;
@@ -127,7 +143,7 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
     let body: React.ReactNode = null;
     if (l.type === 'text') {
       const shown = l.animIn === 'typewriter' ? l.text.slice(0, a.chars) : l.text;
-      body = <div className={`txt txt-${l.style}`} style={{ fontFamily: `"${l.font}"`, fontWeight: fontWeight(l.font, l.bold), fontStyle: l.italic ? 'italic' : 'normal', lineHeight: l.lineHeight ?? 1.12, fontSize: `${l.size}cqh`, textAlign: l.align, ['--glow' as string]: `${(l.glow ?? 100) / 200}em`, ['--outline' as string]: `${(l.outline ?? 4.5) / 100}em`, ['--c' as string]: l.color, ['--a' as string]: l.accent }}>
+      body = <div className={`txt txt-${l.style}`} style={{ fontFamily: `"${l.font}"`, fontWeight: fontWeight(l.font, l.bold), fontStyle: l.italic ? 'italic' : 'normal', lineHeight: l.lineHeight ?? 1.12, fontSize: `${l.size}cqh`, textAlign: l.align, letterSpacing: `${(l.spacing ?? 0) / 100}em`, textTransform: l.caps ? 'uppercase' : undefined, ['--glow' as string]: `${(l.glow ?? 100) / 200}em`, ['--outline' as string]: `${(l.outline ?? 4.5) / 100}em`, ['--c' as string]: l.color, ['--a' as string]: l.accent }}>
         <span className="txt-ghost">{l.text}</span><span className="txt-live">{shown}</span>
       </div>;
     } else if (l.type === 'sticker') body = <div className="sticker" style={{ fontSize: `${l.size}cqh` }}>{l.emoji}</div>;
@@ -146,8 +162,13 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
     </div>;
   };
 
-  return <div ref={wrapRef} className="stage-wrap">
-    <div ref={stageRef} className="stage" style={{ width: size.w, height: size.h, background: project.background }}
+  return <div ref={wrapRef} className="stage-wrap" onTouchMove={onTouchMove} onTouchEnd={() => { touch.current = null; }}>
+    <div className="zoom-pill">
+      <button aria-label="Zoom out preview" onClick={() => zoomBy(0.8)}><ZoomOut /></button>
+      <button aria-label="Reset preview zoom" onClick={() => setView({ z: 1, x: 0, y: 0 })}>{Math.round(view.z * 100)}%</button>
+      <button aria-label="Zoom in preview" onClick={() => zoomBy(1.25)}><ZoomIn /></button>
+    </div>
+    <div ref={stageRef} className="stage" style={{ width: size.w, height: size.h, background: project.background, transform: view.z !== 1 ? `translate(${view.x}px, ${view.y}px) scale(${view.z})` : undefined }}
       onPointerDown={e => { if ((e.target as HTMLElement).closest('.layer-box')) return; onSelect(cur ? { kind: 'clip', id: cur.clip.id } : null); }}>
       <div className="stage-base" style={{ transform: `translate(${fx.dx}%, ${fx.dy}%) scale(${fx.scale})`, filter: fx.filter || undefined }}>
         {mounted.map(m => m.node)}
@@ -156,6 +177,7 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
       {fx.vignette > 0 && <div className="vignette" style={{ opacity: fx.vignette }} />}
       {fx.darken > 0 && <div className="fx-fill" style={{ background: 'black', opacity: fx.darken }} />}
       {project.layers.map(l => l.type === 'text' || l.type === 'sticker' ? renderVisual(l) : null)}
+      {fx.letterbox > 0 && <><div className="lbox top" style={{ height: `${fx.letterbox}%` }} /><div className="lbox bot" style={{ height: `${fx.letterbox}%` }} /></>}
       {fx.flash > 0 && <div className="fx-fill" style={{ background: 'white', opacity: fx.flash }} />}
       {guides.v && <div className="guide guide-v" />}{guides.h && <div className="guide guide-h" />}
       {project.layers.map(l => l.type === 'audio' && t >= l.start - 1.5 && t < l.start + l.duration

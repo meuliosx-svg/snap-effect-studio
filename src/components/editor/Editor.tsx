@@ -9,7 +9,7 @@ import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  ASPECTS, EFFECTS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
+  ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
   type Adjust, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
@@ -174,7 +174,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   });
 
   const lanes = packLanes(project.layers);
-  const timelineHeight = Math.min(280, Math.max(150, 104 + 42 * (lanes.text.length + lanes.visual.length + lanes.audio.length)));
+  const timelineHeight = Math.min(300, Math.max(190, 112 + 48 * (Math.max(1, lanes.text.length) + lanes.visual.length + Math.max(1, lanes.audio.length))));
   const hasSel = !!(selClip || selLayer || selTrans);
   const toolBtn = (label: string, Icon: typeof Type, onClick: () => void, cls = '') => <Button variant="ghost" key={label} className={`opt ${cls}`} title={label} onClick={onClick}><Icon /><span>{label}</span></Button>;
 
@@ -228,33 +228,27 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
 
     <div className="ed-timeline">
       <Timeline project={project} clock={clock} playing={playing} pps={pps} selection={selection} onSelect={select} onScrub={scrub} onBeginGesture={beginGesture}
-        onClipChange={(id, patch) => patchClip(id, patch)} onLayerChange={(id, patch) => patchLayer(id, patch)} onAddMedia={() => pickFiles('main')} onZoom={f => setPps(v => clamp(v * f, 8, 300))} />
+        onClipChange={(id, patch) => patchClip(id, patch)} onLayerChange={(id, patch) => patchLayer(id, patch)} onAddMedia={() => pickFiles('main')} onAddText={() => { select(null); setSheet('text'); }} onAddAudio={() => { select(null); setSheet('audio'); }} onZoom={f => setPps(v => clamp(v * f, 8, 300))} />
       <div className="tl-playhead" />
     </div>
 
-    <aside className="ed-rail" aria-label="Editing tools">
-      <div className="rail-heading">{hasSel ? 'SELECTED' : 'TOOLS'}</div>
-      {hasSel && <div className="opts">
-        {toolBtn('Done', Check, () => select(null), 'back')}
-        {options()}
-      </div>}
-      <div className="rail-group">
+    </div>
+
+    <nav className="ed-dock" aria-label="Editing tools">
+      {hasSel ? <>{toolBtn('Done', Check, () => select(null), 'back')}<span className="dock-sep" />{options()}</> : <>
         {toolBtn('Media', Film, () => pickFiles('main'))}
         {toolBtn('Text', Type, () => setSheet('text'))}
-        {toolBtn('Layers', Layers, () => setSheet('layer'))}
         {toolBtn('Audio', Music2, () => setSheet('audio'))}
-        {toolBtn(rec ? 'Stop' : 'Record', rec ? Square : Mic, () => void startRec(), rec ? 'danger' : '')}
-      </div>
-      <div className="rail-group">
-        {toolBtn('Stickers', Smile, () => { if (selLayer?.type !== 'sticker') select(null); setSheet('sticker'); })}
+        {toolBtn('Overlay', Layers, () => setSheet('layer'))}
         {toolBtn('Effects', Sparkles, () => { if (selLayer?.type !== 'effect') select(null); setSheet('effect'); })}
         {toolBtn('Filters', Palette, () => openLook('filter'))}
-        {toolBtn('Color', SlidersHorizontal, () => openLook('adjust'))}
+        {toolBtn('Adjust', SlidersHorizontal, () => openLook('adjust'))}
         {toolBtn('Speed', Gauge, () => { const c = selClip ?? clipAt(placeClips(project.clips), t())?.clip; if (!c || c.kind !== 'video') { flash('Select a video to change speed'); return; } setSelection({ kind: 'clip', id: c.id }); setSheet('speed'); })}
+        {toolBtn('Stickers', Smile, () => { if (selLayer?.type !== 'sticker') select(null); setSheet('sticker'); })}
         {toolBtn('Ratio', Crop, () => setSheet('canvas'))}
-      </div>
-    </aside>
-    </div>
+        {toolBtn(rec ? 'Stop' : 'Record', rec ? Square : Mic, () => void startRec(), rec ? 'danger' : '')}
+      </>}
+    </nav>
 
     {sheet && <div className="sheet-shade" onPointerDown={() => setSheet(null)} />}
     {sheet && <div className="sheet" role="dialog">
@@ -310,10 +304,11 @@ function SheetBody(b: BodyProps) {
   if (sheet === 'text') return <div className="presets">{TEXT_PRESETS.map(p => <Button variant="ghost" key={p.name} className="preset" onClick={() => b.addText(p.patch)}>
     <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></Button>)}</div>;
   if (sheet === 'sticker') return <div className="stickers">{STICKERS.map(s => <Button variant="ghost" key={s} onClick={() => b.addSticker(s)}>{s}</Button>)}</div>;
-  if (sheet === 'effect') return <>
-    <div className="grid-tiles">{EFFECTS.map(e => <Button variant="ghost" key={e.id} className={`tile small ${selLayer?.type === 'effect' && selLayer.effect === e.id ? 'on' : ''}`} onClick={() => b.addEffect(e.id)}><Sparkles /><span>{e.name}</span></Button>)}</div>
+  if (sheet === 'effect') { const thumb = project.clips[0] ? project.media[project.clips[0].mediaId]?.thumbs[0] : undefined; return <>
     {selLayer?.type === 'effect' && <Slider label="Intensity" value={selLayer.intensity} min={5} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { intensity: v })} />}
-  </>;
+    {EFFECT_GROUPS.map(g => <div key={g}><p className="lbl">{g}</p><div className="fx-grid">{EFFECTS.filter(e => e.group === g).map(e => <button key={e.id} className={`fx-tile fx-${e.id} ${selLayer?.type === 'effect' && selLayer.effect === e.id ? 'on' : ''}`} onClick={() => b.addEffect(e.id)}>
+      <span className="fx-thumb" style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: e.css || undefined }} /><small>{e.name}</small></button>)}</div></div>)}
+  </>; }
   if (sheet === 'filter' || sheet === 'adjust') {
     if (!lookTarget) return <p className="muted">Add a video or photo first.</p>;
     const filter = lookTarget.kind === 'clip' ? lookTarget.c.filter : lookTarget.l.filter; const adj = lookTarget.kind === 'clip' ? lookTarget.c.adjust : lookTarget.l.adjust;
@@ -361,17 +356,20 @@ function SheetBody(b: BodyProps) {
   </>;
   if (sheet === 'textEdit' && selLayer?.type === 'text') { const l = selLayer; return <>
     <textarea aria-label="Text content" className="txt-input" value={l.text} autoFocus rows={2} onFocus={beginGesture} onChange={e => patchLayer(l.id, { text: e.target.value })} />
-    <p className="lbl">Style</p><Chips items={TEXT_STYLES} value={l.style} onPick={v => patchLayer(l.id, { style: v }, true)} />
+    <p className="lbl">Style</p><div className="style-grid">{TEXT_STYLES.map(st => <button key={st.id} className={`style-tile ${l.style === st.id ? 'on' : ''}`} onClick={() => patchLayer(l.id, { style: st.id }, true)}>
+      <span className={`txt txt-${st.id}`} style={{ fontFamily: `"${l.font}"`, ['--c' as string]: l.color, ['--a' as string]: l.accent, ['--outline' as string]: '.06em', ['--glow' as string]: '.4em' }}><span className="txt-live static">Aa</span></span><small>{st.name}</small></button>)}</div>
     <p className="lbl">Font</p><FontUpload project={project} apply={apply} onPick={font => patchLayer(l.id, { font }, true)} flash={b.flash} /><div className="chips">{[...FONTS, ...(project.fonts ?? []).map(f => ({ id: f.family, name: f.name }))].map(f => <Button variant="ghost" key={f.id} className={`chip ${l.font === f.id ? 'on' : ''}`} style={{ fontFamily: `"${f.id}"` }} onClick={() => patchLayer(l.id, { font: f.id }, true)}>{f.name}</Button>)}</div>
     <p className="lbl">Color</p><div className="swatches">{SWATCHES.map(c => <Button variant="ghost" key={c} aria-label={c} className={l.color === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { color: c }, true)} />)}<input type="color" value={l.color} onChange={e => patchLayer(l.id, { color: e.target.value })} /></div>
     <p className="lbl">Glow / outline / box color</p><div className="swatches">{SWATCHES.map(c => <Button variant="ghost" key={c} aria-label={c} className={l.accent === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { accent: c }, true)} />)}<input type="color" value={l.accent} onChange={e => patchLayer(l.id, { accent: e.target.value })} /></div>
     <Slider label="Glow strength" value={l.glow ?? 100} min={0} max={200} unit="%" onStart={beginGesture} onChange={v => patchLayer(l.id, { glow: v })} />
     <Slider label="Outline thickness" value={l.outline ?? 4.5} min={1} max={12} step={0.5} onStart={beginGesture} onChange={v => patchLayer(l.id, { outline: v })} />
+    <Slider label="Letter spacing" value={l.spacing ?? 0} min={-10} max={80} onStart={beginGesture} onChange={v => patchLayer(l.id, { spacing: v })} />
     <Slider label="Line height" value={l.lineHeight ?? 1.12} min={0.8} max={2} step={0.05} onStart={beginGesture} onChange={v => patchLayer(l.id, { lineHeight: v })} />
     <Slider label="Opacity" value={l.opacity * 100} min={0} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(l.id, { opacity: v / 100 })} />
     <Slider label="Duration" value={l.duration} min={0.2} max={60} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchLayer(l.id, { duration: v })} />
     <Slider label="Size" value={l.size} min={3} max={40} step={0.5} onStart={beginGesture} onChange={v => patchLayer(l.id, { size: v })} />
     <div className="chips"><Button variant="ghost" className={`chip ${l.bold ? 'on' : ''}`} onClick={() => patchLayer(l.id, { bold: !l.bold }, true)}><b>B</b> Bold</Button>
+      <Button variant="ghost" className={`chip ${l.caps ? 'on' : ''}`} onClick={() => patchLayer(l.id, { caps: !l.caps }, true)}>AA Caps</Button>
       <Button variant="ghost" className={`chip ${l.italic ? 'on' : ''}`} onClick={() => patchLayer(l.id, { italic: !l.italic }, true)}><i>I</i> Italic</Button>
       {(['left', 'center', 'right'] as const).map(a => <Button variant="ghost" key={a} className={`chip ${l.align === a ? 'on' : ''}`} onClick={() => patchLayer(l.id, { align: a }, true)}>{a}</Button>)}</div>
   </>; }

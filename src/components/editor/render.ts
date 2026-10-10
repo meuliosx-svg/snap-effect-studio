@@ -54,7 +54,9 @@ export function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, t: number,
   ctx.save(); ctx.globalAlpha = a.opacity;
   ctx.translate((l.x / 100) * W, (l.y / 100) * H + (a.dy / 100) * H); ctx.rotate((l.rotation * Math.PI) / 180); ctx.scale(a.scale, a.scale);
   ctx.font = `${l.italic ? 'italic ' : ''}${fontWeight(l.font, l.bold)} ${fs}px "${l.font}"`; ctx.textBaseline = 'middle'; ctx.textAlign = l.align;
-  const full = l.text.split('\n'); const widths = full.map(line => ctx.measureText(line).width); const maxW = Math.max(1, ...widths);
+  (ctx as unknown as { letterSpacing: string }).letterSpacing = `${((l.spacing ?? 0) / 100) * fs}px`; ctx.imageSmoothingQuality = 'high';
+  if (l.caps) lines.forEach((ln, i) => { lines[i] = ln.toUpperCase(); });
+  const full = (l.caps ? l.text.toUpperCase() : l.text).split('\n'); const widths = full.map(line => ctx.measureText(line).width); const maxW = Math.max(1, ...widths);
   const top = -((full.length - 1) * lineH) / 2; const ax = l.align === 'left' ? -maxW / 2 : l.align === 'right' ? maxW / 2 : 0;
   if (l.style === 'box') { const pad = fs * 0.3; ctx.fillStyle = l.accent; roundRect(ctx, -maxW / 2 - pad, top - lineH / 2 - pad * 0.5, maxW + pad * 2, full.length * lineH + pad, fs * 0.18); ctx.fill(); }
   lines.forEach((line, i) => {
@@ -64,6 +66,8 @@ export function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, t: number,
       if (l.style === 'neon-outline') { ctx.shadowColor = l.accent; ctx.shadowBlur = fs * 0.5 * glow; ctx.strokeText(line, ax, y); }
       ctx.strokeText(line, ax, y); ctx.shadowBlur = 0; return;
     }
+    if (l.style === 'stroke') { ctx.lineWidth = fs * ((l.outline ?? 4.5) / 100) * 2; ctx.strokeStyle = l.accent; ctx.lineJoin = 'round'; ctx.strokeText(line, ax, y); ctx.fillStyle = l.color; ctx.fillText(line, ax, y); return; }
+    if (l.style === 'extrude') { ctx.fillStyle = l.accent; const n = Math.max(2, Math.round(fs * 0.08)); for (let k = n; k > 0; k--) ctx.fillText(line, ax + k, y + k); ctx.fillStyle = l.color; ctx.fillText(line, ax, y); return; }
     if (l.style === 'gradient') { const g = ctx.createLinearGradient(0, y - fs / 2, 0, y + fs / 2); g.addColorStop(0, l.color); g.addColorStop(1, l.accent); ctx.fillStyle = g; ctx.fillText(line, ax, y); return; }
     ctx.fillStyle = l.color;
     if (l.style === 'glow') { ctx.shadowColor = l.accent; ctx.shadowBlur = fs * 0.5 * glow; ctx.fillText(line, ax, y); ctx.shadowBlur = fs * 0.12 * glow; }
@@ -96,6 +100,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, p: Project, t: number, 
     if (l.type === 'text') drawText(ctx, l, t, W, H);
     if (l.type === 'sticker') { const a = layerAnim(l, t); ctx.save(); ctx.globalAlpha = a.opacity; ctx.translate((l.x / 100) * W, (l.y / 100) * H + (a.dy / 100) * H); ctx.rotate((l.rotation * Math.PI) / 180); ctx.scale(a.scale, a.scale); ctx.font = `${(l.size / 100) * H}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(l.emoji, 0, 0); ctx.restore(); }
   });
+  if (fx.letterbox) { const b = (fx.letterbox / 100) * H; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, b); ctx.fillRect(0, H - b, W, b); }
   if (fx.flash) { ctx.fillStyle = `rgba(255,255,255,${fx.flash})`; ctx.fillRect(0, 0, W, H); }
   ctx.restore();
 }
