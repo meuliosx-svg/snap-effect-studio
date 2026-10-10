@@ -92,7 +92,7 @@ svg { width: 18px; height: 18px; }
 .pill { font-size: 11px; padding: 6px 9px; border-radius: 99px; background: var(--secondary); }
 .export-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--primary); color: var(--primary-foreground); font-weight: 700; padding: 8px 13px; border-radius: 99px; font-size: 12px; margin-left: 4px; text-decoration: none; }
 .export-btn.big { width: 100%; padding: 13px; font-size: 14px; margin: 10px 0 0; }
-.ed-workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 144px; grid-template-rows: minmax(0, 1fr) 46px minmax(180px, 30%); }
+.ed-workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 144px; grid-template-rows: minmax(0, 1fr) 46px min(38%, var(--timeline-height, 180px)); }
 .ed-stage { grid-column: 1; grid-row: 1; min-height: 0; display: flex; background: var(--stage); }
 .ed-rail { grid-column: 2; grid-row: 1 / 4; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 8px; overflow-y: auto; background: var(--card); border-left: 1px solid var(--border); scrollbar-width: thin; }
 .rail-heading { padding: 4px 8px; font-size: 10px; color: var(--muted-foreground); }
@@ -205,7 +205,7 @@ svg { width: 18px; height: 18px; }
 .ed.is-full .ed-rail, .ed.is-full .ed-timeline { display: none; }
 .ed.is-full .ed-workspace { grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr) 46px; }
 @media (max-width: 700px) {
-  .ed-workspace { grid-template-columns: minmax(0,1fr) 78px; grid-template-rows: minmax(0,1fr) 44px minmax(152px, 34%); }
+  .ed-workspace { grid-template-columns: minmax(0,1fr) 78px; grid-template-rows: minmax(0,1fr) 44px min(38%, var(--timeline-height, 150px)); }
   .ed-rail { padding: 8px 5px; gap: 6px; }
   .rail-heading { font-size: 9px; padding: 3px 0; text-align: center; }
   .opt { flex-direction: column; justify-content: center; gap: 4px; min-height: 54px; padding: 7px 2px; font-size: 10px; }
@@ -221,5 +221,5 @@ svg { width: 18px; height: 18px; }
   .presets { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
 @media (max-width: 480px) { .home-new { grid-template-columns: repeat(3, 1fr); } .export-btn { padding: 8px; } .ed-name { font-size: 11px; } .pill { padding: 6px; } .ed-timeline .tl-row.main { height: 56px; } }
-@media (max-height: 560px) { .ed-workspace { grid-template-rows: minmax(0,1fr) 40px minmax(140px, 38%); } .ed-top { height: 44px; } .ed-transport { height: 40px; } }
+@media (max-height: 560px) { .ed-workspace { grid-template-rows: minmax(0,1fr) 40px min(38%, var(--timeline-height, 150px)); } .ed-top { height: 44px; } .ed-transport { height: 40px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Minimize2, Type, Smile, Sparkles, Palette, SlidersHorizontal, Crop, Trash2, Scissors, Copy, Gauge, Volume2, Wand2, Film, Layers, Music2, Mic, Square, ChevronLeft, ChevronRight, RotateCw, FlipHorizontal, FlipVertical, Pencil, Clapperboard, ImagePlus, Download, X, ZoomIn, ZoomOut, Check, Loader2, Camera, ArrowLeftRight } from 'lucide-react';
 import Preview, { unlockMedia } from './Preview';
 import Timeline from './Timeline';
@@ -9,7 +9,7 @@ import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  ASPECTS, EFFECTS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, placeClips, projectDuration, uid,
+  ASPECTS, EFFECTS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
   type Adjust, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
@@ -173,6 +173,8 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   });
 
+  const lanes = packLanes(project.layers);
+  const timelineHeight = Math.min(280, Math.max(150, 104 + 42 * (lanes.text.length + lanes.visual.length + lanes.audio.length)));
   const hasSel = !!(selClip || selLayer || selTrans);
   const toolBtn = (label: string, Icon: typeof Type, onClick: () => void, cls = '') => <Button variant="ghost" key={label} className={`opt ${cls}`} title={label} onClick={onClick}><Icon /><span>{label}</span></Button>;
 
@@ -206,7 +208,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
       </div>
     </header>
 
-    <div className="ed-workspace">
+    <div className="ed-workspace" style={{ ['--timeline-height' as string]: `${timelineHeight}px` } as CSSProperties}>
     <section className="ed-stage">
 
       <div className="ed-preview">
