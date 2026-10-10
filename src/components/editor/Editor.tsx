@@ -10,12 +10,12 @@ import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
-  type Adjust, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
+  ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
+  type Adjust, type AnimLoop, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
 type Sheet = null | 'text' | 'textEdit' | 'sticker' | 'effect' | 'filter' | 'adjust' | 'speed' | 'volume' | 'transform' | 'anim' | 'transition' | 'canvas' | 'export' | 'layer' | 'audio';
-const base = (start: number, duration: number) => ({ start, duration, x: 50, y: 50, rotation: 0, opacity: 1, animIn: 'fade' as AnimIn, animOut: 'fade' as AnimOut });
+const base = (start: number, duration: number) => ({ start, duration, x: 50, y: 50, rotation: 0, opacity: 1, animIn: 'none' as AnimIn, animOut: 'none' as AnimOut });
 
 export default function Editor({ initial, onExit }: { initial: Project; onExit: () => void }) {
   const [project, setProject] = useState(initial);
@@ -146,7 +146,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   const addText = (patch: Partial<TextLayer>) => { const l = makeText(t(), patch); apply(p => ({ ...p, layers: [...p.layers, l] })); setSelection({ kind: 'layer', id: l.id }); setSheet('textEdit'); };
   const addSticker = (emoji: string) => {
     if (selLayer?.type === 'sticker') { patchLayer(selLayer.id, { emoji }, true); return; }
-    const l: Layer = { ...base(t(), 3), animIn: 'pop', animOut: 'pop', id: uid('stk'), type: 'sticker', emoji, size: 18 }; apply(p => ({ ...p, layers: [...p.layers, l] })); setSelection({ kind: 'layer', id: l.id }); setSheet(null);
+    const l: Layer = { ...base(t(), 3), animIn: 'none', animOut: 'none', id: uid('stk'), type: 'sticker', emoji, size: 18 }; apply(p => ({ ...p, layers: [...p.layers, l] })); setSelection({ kind: 'layer', id: l.id }); setSheet(null);
   };
   const addEffect = (effect: EffectType) => {
     if (selLayer?.type === 'effect') { patchLayer(selLayer.id, { effect }, true); return; }
@@ -302,8 +302,8 @@ function SheetBody(b: BodyProps) {
     <Button variant="ghost" className="tile" onClick={b.startRec}><Mic /><span>Record voiceover</span></Button>
     <Button variant="ghost" className="tile" onClick={() => b.pickFiles('audio')}><Clapperboard /><span>Extract audio from video</span></Button>
   </div>;
-  if (sheet === 'text') return <div className="presets">{TEXT_PRESETS.map(p => <Button variant="ghost" key={p.name} className="preset" onClick={() => b.addText(p.patch)}>
-    <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></Button>)}</div>;
+  if (sheet === 'text') return <div className="text-template-list"><Button variant="ghost" className="text-add-row" onClick={() => b.addText({})}><Type /> Blank text<ChevronRight /></Button><div className="presets">{TEXT_PRESETS.map(p => <Button variant="ghost" key={p.name} className="preset" onClick={() => b.addText(p.patch)}>
+    <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></Button>)}</div></div>;
   if (sheet === 'sticker') return <div className="stickers">{STICKERS.map(s => <Button variant="ghost" key={s} onClick={() => b.addSticker(s)}>{s}</Button>)}</div>;
   if (sheet === 'effect') { const thumb = project.clips[0] ? project.media[project.clips[0].mediaId]?.thumbs[0] : undefined; return <>
     {selLayer?.type === 'effect' && <Slider label="Intensity" value={selLayer.intensity} min={5} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { intensity: v })} />}
@@ -358,29 +358,30 @@ function SheetBody(b: BodyProps) {
       <Slider label="Rotation" value={selLayer.rotation} min={-180} max={180} unit="°" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { rotation: v })} />
     </>;
   }
-  if (sheet === 'anim' && selLayer && selLayer.type !== 'audio' && selLayer.type !== 'effect') return <>
-    <p className="lbl">In</p><Chips<AnimIn> items={[{ id: 'none', name: 'None' }, { id: 'fade', name: 'Fade' }, { id: 'pop', name: 'Pop' }, { id: 'slide', name: 'Slide up' }, { id: 'zoom', name: 'Zoom' }, ...(selLayer.type === 'text' ? [{ id: 'typewriter' as AnimIn, name: 'Typewriter' }] : [])]} value={selLayer.animIn} onPick={v => patchLayer(selLayer.id, { animIn: v }, true)} />
-    <p className="lbl">Out</p><Chips<AnimOut> items={[{ id: 'none', name: 'None' }, { id: 'fade', name: 'Fade' }, { id: 'pop', name: 'Pop' }, { id: 'slide', name: 'Slide' }, { id: 'zoom', name: 'Zoom' }]} value={selLayer.animOut} onPick={v => patchLayer(selLayer.id, { animOut: v }, true)} />
-  </>;
-  if (sheet === 'textEdit' && selLayer?.type === 'text') { const l = selLayer; return <>
+  if (sheet === 'anim' && selLayer && selLayer.type !== 'audio' && selLayer.type !== 'effect') return <AnimationPanel layer={selLayer} patchLayer={patchLayer} beginGesture={beginGesture} />;
+  if (sheet === 'textEdit' && selLayer?.type === 'text') { const l = selLayer; return <div className="text-menu">
     <textarea aria-label="Text content" className="txt-input" value={l.text} autoFocus rows={2} onFocus={beginGesture} onChange={e => patchLayer(l.id, { text: e.target.value })} />
-    <p className="lbl">Style</p><div className="style-grid">{TEXT_STYLES.map(st => <button key={st.id} className={`style-tile ${l.style === st.id ? 'on' : ''}`} onClick={() => patchLayer(l.id, { style: st.id }, true)}>
-      <span className={`txt txt-${st.id}`} style={{ fontFamily: `"${l.font}"`, ['--c' as string]: l.color, ['--a' as string]: l.accent, ['--outline' as string]: '.06em', ['--glow' as string]: '.4em' }}><span className="txt-live static">Aa</span></span><small>{st.name}</small></button>)}</div>
-    <p className="lbl">Font</p><FontUpload project={project} apply={apply} onPick={font => patchLayer(l.id, { font }, true)} flash={b.flash} /><div className="chips">{[...FONTS, ...(project.fonts ?? []).map(f => ({ id: f.family, name: f.name }))].map(f => <Button variant="ghost" key={f.id} className={`chip ${l.font === f.id ? 'on' : ''}`} style={{ fontFamily: `"${f.id}"` }} onClick={() => patchLayer(l.id, { font: f.id }, true)}>{f.name}</Button>)}</div>
-    <p className="lbl">Color</p><div className="swatches">{SWATCHES.map(c => <Button variant="ghost" key={c} aria-label={c} className={l.color === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { color: c }, true)} />)}<input type="color" value={l.color} onChange={e => patchLayer(l.id, { color: e.target.value })} /></div>
+    <TextSection title="Style & templates"><div className="style-grid">{TEXT_STYLES.map(st => <Button variant="ghost" key={st.id} className={`style-tile ${l.style === st.id ? 'on' : ''}`} onClick={() => patchLayer(l.id, { style: st.id }, true)}>
+      <span className={`txt txt-${st.id}`} style={{ fontFamily: `"${l.font}"`, ['--c' as string]: l.color, ['--a' as string]: l.accent, ['--outline' as string]: '.06em', ['--glow' as string]: '.4em' }}><span className="txt-live static">Aa</span></span><small>{st.name}</small></Button>)}</div>
+    </TextSection><TextSection title="Fonts" value={l.font}><FontUpload project={project} apply={apply} onPick={font => patchLayer(l.id, { font }, true)} flash={b.flash} /><div className="chips">{[...FONTS, ...(project.fonts ?? []).map(f => ({ id: f.family, name: f.name }))].map(f => <Button variant="ghost" key={f.id} className={`chip ${l.font === f.id ? 'on' : ''}`} style={{ fontFamily: `"${f.id}"` }} onClick={() => patchLayer(l.id, { font: f.id }, true)}>{f.name}</Button>)}</div>
+    </TextSection><TextSection title="Colors & glow"><div className="swatches">{SWATCHES.map(c => <Button variant="ghost" key={c} aria-label={c} className={l.color === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { color: c }, true)} />)}<input type="color" value={l.color} onChange={e => patchLayer(l.id, { color: e.target.value })} /></div>
     <p className="lbl">Glow / outline / box color</p><div className="swatches">{SWATCHES.map(c => <Button variant="ghost" key={c} aria-label={c} className={l.accent === c ? 'on' : ''} style={{ background: c }} onClick={() => patchLayer(l.id, { accent: c }, true)} />)}<input type="color" value={l.accent} onChange={e => patchLayer(l.id, { accent: e.target.value })} /></div>
     <Slider label="Glow strength" value={l.glow ?? 100} min={0} max={200} unit="%" onStart={beginGesture} onChange={v => patchLayer(l.id, { glow: v })} />
     <Slider label="Outline thickness" value={l.outline ?? 4.5} min={1} max={12} step={0.5} onStart={beginGesture} onChange={v => patchLayer(l.id, { outline: v })} />
+    </TextSection><TextSection title="Size & layout">
     <Slider label="Letter spacing" value={l.spacing ?? 0} min={-10} max={80} onStart={beginGesture} onChange={v => patchLayer(l.id, { spacing: v })} />
     <Slider label="Line height" value={l.lineHeight ?? 1.12} min={0.8} max={2} step={0.05} onStart={beginGesture} onChange={v => patchLayer(l.id, { lineHeight: v })} />
+    </TextSection><TextSection title="Timing & opacity">
     <Slider label="Opacity" value={l.opacity * 100} min={0} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(l.id, { opacity: v / 100 })} />
     <Slider label="Duration" value={l.duration} min={0.2} max={60} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchLayer(l.id, { duration: v })} />
+    </TextSection><TextSection title="Formatting">
     <Slider label="Size" value={l.size} min={3} max={40} step={0.5} onStart={beginGesture} onChange={v => patchLayer(l.id, { size: v })} />
     <div className="chips"><Button variant="ghost" className={`chip ${l.bold ? 'on' : ''}`} onClick={() => patchLayer(l.id, { bold: !l.bold }, true)}><b>B</b> Bold</Button>
       <Button variant="ghost" className={`chip ${l.caps ? 'on' : ''}`} onClick={() => patchLayer(l.id, { caps: !l.caps }, true)}>AA Caps</Button>
       <Button variant="ghost" className={`chip ${l.italic ? 'on' : ''}`} onClick={() => patchLayer(l.id, { italic: !l.italic }, true)}><i>I</i> Italic</Button>
       {(['left', 'center', 'right'] as const).map(a => <Button variant="ghost" key={a} className={`chip ${l.align === a ? 'on' : ''}`} onClick={() => patchLayer(l.id, { align: a }, true)}>{a}</Button>)}</div>
-  </>; }
+    </TextSection><TextSection title="Animations" value={l.animIn === 'none' && l.animOut === 'none' && (!l.animLoop || l.animLoop === 'none') ? 'None' : 'Custom'}><AnimationPanel layer={l} patchLayer={patchLayer} beginGesture={beginGesture} /></TextSection>
+  </div>; }
   if (sheet === 'transition' && selTrans) return <>
     <Chips items={TRANSITIONS} value={selTrans.transition.type} onPick={v => patchClip(selTrans.id, { transition: { ...selTrans.transition, type: v } }, true)} />
     <Slider label="Duration" value={selTrans.transition.duration} min={0.2} max={2} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchClip(selTrans.id, { transition: { ...selTrans.transition, duration: v } })} />
@@ -447,4 +448,26 @@ function RemoveBgButton({ asset, onDone, flash }: { asset: MediaAsset | undefine
     catch (e) { flash(e instanceof Error ? e.message : 'Could not remove background'); }
     finally { setBusy(false); }
   }}><Eraser /> {busy ? 'Removing background…' : 'Remove background'}</Button>;
+}
+
+function TextSection({ title, value, children }: { title: string; value?: string; children: React.ReactNode }) {
+  return <details className="text-section"><summary>{title}<small>{value}</small><ChevronRight /></summary><div className="text-section-body">{children}</div></details>;
+}
+function AnimationPanel({ layer, patchLayer, beginGesture }: { layer: Exclude<Layer, { type: 'audio' } | { type: 'effect' }>; patchLayer: BodyProps['patchLayer']; beginGesture: () => void }) {
+  const [tab, setTab] = useState<'in' | 'out' | 'loop'>('in');
+  const set = (patch: Partial<Layer>) => patchLayer(layer.id, patch, true);
+  const items = tab === 'loop' ? LOOP_ANIMATIONS : [...ANIMATIONS, ...(tab === 'in' && layer.type === 'text' ? [{ id: 'typewriter', name: 'Typewriter' }] : [])];
+  const value = tab === 'in' ? layer.animIn : tab === 'out' ? layer.animOut : layer.animLoop ?? 'none';
+  const active = layer.animIn !== 'none' || layer.animOut !== 'none' || (!!layer.animLoop && layer.animLoop !== 'none');
+  return <div className="animation-menu">
+    <div className="animation-tabs" role="tablist" aria-label="Animation phase">{(['in', 'out', 'loop'] as const).map(t => <Button variant="ghost" key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t === 'in' ? 'Entrance' : t === 'out' ? 'Exit' : 'Loop'}</Button>)}</div>
+    <div className="animation-list">{items.map(i => <Button variant="ghost" key={i.id} aria-pressed={value === i.id} className={`animation-row ${value === i.id ? 'on' : ''}`} onClick={() => set(tab === 'in' ? { animIn: i.id as AnimIn } : tab === 'out' ? { animOut: i.id as AnimOut } : { animLoop: i.id as AnimLoop })}><span>{i.name}</span>{value === i.id && <Check />}</Button>)}</div>
+    {active && <>
+      {tab !== 'loop' && value !== 'none' && <Slider label="Animation duration" value={layer.animDuration ?? 0.5} min={0.1} max={Math.max(0.1, Math.min(5, layer.duration / 2))} step={0.1} unit="s" onStart={beginGesture} onChange={v => patchLayer(layer.id, { animDuration: v })} />}
+      {tab === 'loop' && value !== 'none' && <Slider label="Loop speed" value={layer.animLoopSpeed ?? 1} min={0.25} max={4} step={0.25} unit="x" onStart={beginGesture} onChange={v => patchLayer(layer.id, { animLoopSpeed: v })} />}
+      <Slider label="Animation strength" value={layer.animAmount ?? 100} min={10} max={200} unit="%" onStart={beginGesture} onChange={v => patchLayer(layer.id, { animAmount: v })} />
+      {tab !== 'loop' && <><p className="lbl">Easing</p><Chips items={[{id: 'linear', name: 'Linear'}, {id: 'smooth', name: 'Smooth'}, {id: 'bounce', name: 'Bounce'}]} value={layer.animEasing ?? 'smooth'} onPick={v => set({ animEasing: v })} /></>}
+    </>}
+    <Button variant="ghost" className="ghost" disabled={!active} onClick={() => set({ animIn: 'none', animOut: 'none', animLoop: 'none' })}>Remove all animations</Button>
+  </div>;
 }

@@ -4,8 +4,9 @@ export type MediaKind = 'video' | 'image' | 'audio';
 export type MediaAsset = { id: string; name: string; kind: MediaKind; duration: number; width: number; height: number; thumbs: string[]; peaks?: number[]; hasAudio?: boolean };
 
 export type Adjust = { brightness: number; contrast: number; saturation: number; temperature: number; hue: number; vignette: number };
-export type AnimIn = 'none' | 'fade' | 'pop' | 'slide' | 'zoom' | 'typewriter';
-export type AnimOut = 'none' | 'fade' | 'pop' | 'slide' | 'zoom';
+export type AnimIn = 'none' | 'fade' | 'pop' | 'slide' | 'zoom' | 'typewriter' | 'slide-down' | 'slide-left' | 'slide-right' | 'spin' | 'bounce';
+export type AnimOut = Exclude<AnimIn, 'typewriter'>;
+export type AnimLoop = 'none' | 'pulse' | 'float' | 'shake' | 'swing' | 'heartbeat';
 export type Motion = 'none' | 'zoom-in' | 'zoom-out' | 'pan-left' | 'pan-right';
 export type TransitionType = 'none' | 'fade' | 'dissolve' | 'slide' | 'push' | 'zoom' | 'wipe' | 'spin';
 export type Transition = { type: TransitionType; duration: number };
@@ -18,7 +19,7 @@ export type Clip = {
   fit?: 'fit' | 'fill'; zoom?: number; panX?: number; panY?: number;
 };
 
-type LayerBase = { id: string; start: number; duration: number; x: number; y: number; rotation: number; opacity: number; animIn: AnimIn; animOut: AnimOut };
+type LayerBase = { id: string; start: number; duration: number; x: number; y: number; rotation: number; opacity: number; animIn: AnimIn; animOut: AnimOut; animLoop?: AnimLoop; animDuration?: number; animAmount?: number; animLoopSpeed?: number; animEasing?: 'linear' | 'smooth' | 'bounce' };
 export type TextStyle = 'plain' | 'glow' | 'neon' | 'outline' | 'neon-outline' | 'shadow' | 'gradient' | 'box' | 'stroke' | 'extrude';
 export type TextLayer = LayerBase & { type: 'text'; text: string; font: string; size: number; color: string; accent: string; style: TextStyle; bold: boolean; align: 'left' | 'center' | 'right'; italic?: boolean; lineHeight?: number; glow?: number; outline?: number; spacing?: number; caps?: boolean };
 export type MediaLayer = LayerBase & { type: 'media'; mediaId: string; kind: 'video' | 'image'; in: number; width: number; volume: number; muted: boolean; filter: string; adjust: Adjust };
@@ -184,26 +185,45 @@ export function effectState(layers: Layer[], t: number) {
   return { filter: filters.join(' '), dx, dy, scale, flash, vignette, darken, letterbox };
 }
 
-// Animation in/out for visual layers.
+// Shared animation evaluation for both preview and exported frames.
+export const ANIMATIONS: { id: AnimOut; name: string }[] = [
+  { id: 'none', name: 'None' }, { id: 'fade', name: 'Fade' }, { id: 'pop', name: 'Pop' },
+  { id: 'slide', name: 'Slide up' }, { id: 'slide-down', name: 'Slide down' },
+  { id: 'slide-left', name: 'Slide left' }, { id: 'slide-right', name: 'Slide right' },
+  { id: 'zoom', name: 'Zoom' }, { id: 'spin', name: 'Spin' }, { id: 'bounce', name: 'Bounce' },
+];
+export const LOOP_ANIMATIONS: { id: AnimLoop; name: string }[] = [
+  { id: 'none', name: 'None' }, { id: 'pulse', name: 'Pulse' }, { id: 'float', name: 'Float' },
+  { id: 'shake', name: 'Shake' }, { id: 'swing', name: 'Swing' }, { id: 'heartbeat', name: 'Heartbeat' },
+];
 export function layerAnim(l: LayerBase, t: number, textLength = 0) {
-  const local = t - l.start; const left = l.start + l.duration - t; const d = Math.min(0.5, l.duration / 3);
-  let opacity = 1; let scale = 1; let dy = 0; let chars = textLength;
-  if (local < d && l.animIn !== 'none') {
-    const p = easeOut(local / d);
-    if (l.animIn === 'fade') opacity = p;
-    if (l.animIn === 'pop') { scale = 0.4 + 0.6 * backOut(local / d); opacity = Math.min(1, p * 2); }
-    if (l.animIn === 'slide') { dy = (1 - p) * 12; opacity = p; }
-    if (l.animIn === 'zoom') { scale = 1.8 - 0.8 * p; opacity = p; }
-  }
-  if (l.animIn === 'typewriter') chars = Math.floor(clamp(local / Math.min(l.duration * 0.6, Math.max(0.6, textLength * 0.06)), 0, 1) * textLength);
-  if (left < d && l.animOut !== 'none') {
-    const p = easeOut(clamp(left / d, 0, 1));
-    if (l.animOut === 'fade') opacity *= p;
-    if (l.animOut === 'pop') { scale *= 0.4 + 0.6 * p; opacity *= p; }
-    if (l.animOut === 'slide') { dy -= (1 - p) * 12; opacity *= p; }
-    if (l.animOut === 'zoom') { scale *= 1 + (1 - p) * 0.8; opacity *= p; }
-  }
-  return { opacity: opacity * l.opacity, scale, dy, chars };
+  const local = Math.max(0, t - l.start); const left = l.start + l.duration - t;
+  const d = Math.max(0.01, Math.min(l.animDuration ?? 0.5, l.duration / 2));
+  const amount = (l.animAmount ?? 100) / 100;
+  const ease = (q: number) => l.animEasing === 'linear' ? clamp(q, 0, 1) : l.animEasing === 'bounce' ? backOut(q) : easeOut(q);
+  let opacity = 1; let scale = 1; let dx = 0; let dy = 0; let rotation = 0; let chars = textLength;
+  const apply = (kind: AnimIn, progress: number, outgoing: boolean) => {
+    const raw = clamp(progress, 0, 1); const p = ease(raw); const k = 1 - p;
+    opacity *= easeOut(raw);
+    if (kind === 'pop') scale *= 1 - 0.6 * amount * (1 - (outgoing ? p : backOut(raw)));
+    if (kind === 'zoom') scale *= 1 + 0.8 * amount * k;
+    if (kind === 'slide') dy += (outgoing ? -1 : 1) * k * 12 * amount;
+    if (kind === 'slide-down') dy += (outgoing ? 1 : -1) * k * 12 * amount;
+    if (kind === 'slide-left') dx += (outgoing ? -1 : 1) * k * 20 * amount;
+    if (kind === 'slide-right') dx += (outgoing ? 1 : -1) * k * 20 * amount;
+    if (kind === 'spin') { rotation += k * (outgoing ? 180 : -180) * amount; scale *= 1 - k * 0.5; }
+    if (kind === 'bounce') dy += -Math.abs(Math.sin(raw * Math.PI * 2)) * k * 15 * amount;
+  };
+  if (local < d && l.animIn !== 'none' && l.animIn !== 'typewriter') apply(l.animIn, local / d, false);
+  if (l.animIn === 'typewriter') chars = Math.floor(clamp(local / Math.min(l.animDuration ?? Math.max(0.6, textLength * 0.06), l.duration), 0, 1) * textLength);
+  if (left < d && l.animOut !== 'none') apply(l.animOut, left / d, true);
+  const phase = local * Math.PI * 2 * (l.animLoopSpeed ?? 1); const wave = Math.sin(phase);
+  if (l.animLoop === 'pulse') scale *= 1 + wave * 0.08 * amount;
+  if (l.animLoop === 'float') dy += wave * 2 * amount;
+  if (l.animLoop === 'shake') { dx += Math.sin(phase * 9) * 0.7 * amount; dy += Math.cos(phase * 11) * 0.4 * amount; }
+  if (l.animLoop === 'swing') rotation += wave * 8 * amount;
+  if (l.animLoop === 'heartbeat') scale *= 1 + Math.pow(Math.max(0, wave), 8) * 0.12 * amount;
+  return { opacity: opacity * l.opacity, scale, dx, dy, rotation, chars };
 }
 const easeOut = (p: number) => 1 - Math.pow(1 - clamp(p, 0, 1), 3);
 const backOut = (p: number) => { const c = 1.70158; const x = clamp(p, 0, 1) - 1; return 1 + (c + 1) * x * x * x + c * x * x; };
@@ -267,45 +287,45 @@ export const TEXT_PRESETS: { name: string; patch: Partial<TextLayer> }[] = [
   { name: 'Cinematic Blue', patch: { text: 'THE NEXT CHAPTER', font: 'Bebas Neue', style: 'neon-outline', color: '#30d5ff', accent: '#30d5ff', size: 12, y: 72, animIn: 'none', animOut: 'none' } },
   { name: 'Ember Outline', patch: { text: 'MEMES ABOUT ME?', font: 'Anton', style: 'neon-outline', color: '#ff9f0a', accent: '#ff3b30', size: 10, y: 65, animIn: 'none', animOut: 'none' } },
   { name: 'Clean Caption', patch: { text: 'WHAT ARE YOU?', font: 'Manrope', style: 'glow', color: '#ffffff', accent: '#ff9f0a', size: 7, y: 58, glow: 35, animIn: 'none', animOut: 'none' } },
-  { name: 'Hero Stroke', patch: { text: 'LEGENDARY', font: 'Anton', style: 'stroke', color: '#ffffff', accent: '#111111', outline: 8, size: 12, animIn: 'pop' } },
-  { name: '3D Title', patch: { text: 'NEXT LEVEL', font: 'Bebas Neue', style: 'extrude', color: '#ffd60a', accent: '#ff3b30', size: 13, animIn: 'zoom' } },
-  { name: 'Wide Cinema', patch: { text: 'A FILM BY YOU', font: 'Manrope', style: 'glow', color: '#ffffff', accent: '#ffffff', glow: 25, spacing: 40, size: 5, animIn: 'fade' } },
-  { name: 'Neon Glow', patch: { text: 'NEON', font: 'Righteous', style: 'neon', color: '#ffffff', accent: '#ff2d92', animIn: 'fade' } },
-  { name: 'Bold Title', patch: { text: 'BIG MOMENT', font: 'Anton', style: 'shadow', color: '#ffffff', accent: '#000000', animIn: 'pop' } },
-  { name: 'Golden Glow', patch: { text: 'Golden hour', font: 'Playfair Display', style: 'glow', color: '#fff4d6', accent: '#ffb000', animIn: 'zoom' } },
-  { name: 'Outline Pop', patch: { text: 'OUTLINE', font: 'Bebas Neue', style: 'outline', color: '#ffd60a', accent: '#ffd60a', animIn: 'pop' } },
-  { name: 'Gradient', patch: { text: 'Vibes', font: 'Pacifico', style: 'gradient', color: '#30d5ff', accent: '#bf5af2', animIn: 'slide' } },
-  { name: 'Label', patch: { text: 'SUBSCRIBE', font: 'Manrope', style: 'box', color: '#111111', accent: '#ffd60a', animIn: 'slide' } },
-  { name: 'Typewriter', patch: { text: 'once upon a time…', font: 'Space Mono', style: 'plain', color: '#ffffff', accent: '#000000', animIn: 'typewriter' } },
-  { name: 'Marker', patch: { text: 'wow!!', font: 'Permanent Marker', style: 'glow', color: '#32d74b', accent: '#32d74b', animIn: 'pop' } },
-  { name: 'Red Alert', patch: { text: 'WAIT FOR IT', font: 'Bebas Neue', style: 'neon-outline', color: '#ff3b30', accent: '#ff3b30', size: 12, animIn: 'zoom' } },
-  { name: 'Purple Haze', patch: { text: 'MIDNIGHT', font: 'Orbitron', style: 'neon', color: '#ffffff', accent: '#bf5af2', size: 10, animIn: 'fade' } },
-  { name: 'Comic Pop', patch: { text: 'BOOM!', font: 'Bangers', style: 'stroke', color: '#ffd60a', accent: '#111111', outline: 7, size: 16, animIn: 'pop' } },
-  { name: 'Retro Arcade', patch: { text: 'GAME OVER', font: 'Press Start 2P', style: 'extrude', color: '#30d5ff', accent: '#ff2d92', size: 6, animIn: 'typewriter' } },
-  { name: 'Wedding', patch: { text: 'Forever', font: 'Great Vibes', style: 'glow', color: '#fff4d6', accent: '#ffd60a', glow: 50, size: 14, animIn: 'fade' } },
-  { name: 'Luxury', patch: { text: 'COLLECTION', font: 'Cinzel', style: 'plain', color: '#ffd60a', accent: '#000000', spacing: 30, size: 6, animIn: 'fade' } },
-  { name: 'Vlog Title', patch: { text: 'day in my life', font: 'Caveat', style: 'shadow', color: '#ffffff', accent: '#000000', size: 11, animIn: 'slide' } },
-  { name: 'Sport Hype', patch: { text: 'GAME DAY', font: 'Teko', style: 'stroke', color: '#ffffff', accent: '#ff3b30', outline: 6, size: 15, animIn: 'zoom', italic: true } },
-  { name: 'Horror', patch: { text: 'DON\'T LOOK', font: 'Creepster', style: 'glow', color: '#ff3b30', accent: '#000000', size: 13, animIn: 'fade' } },
-  { name: 'Minimal', patch: { text: 'less is more', font: 'Syne', style: 'plain', color: '#ffffff', accent: '#000000', spacing: 10, size: 6, animIn: 'fade' } },
+  { name: 'Hero Stroke', patch: { text: 'LEGENDARY', font: 'Anton', style: 'stroke', color: '#ffffff', accent: '#111111', outline: 8, size: 12, animIn: 'none' } },
+  { name: '3D Title', patch: { text: 'NEXT LEVEL', font: 'Bebas Neue', style: 'extrude', color: '#ffd60a', accent: '#ff3b30', size: 13, animIn: 'none' } },
+  { name: 'Wide Cinema', patch: { text: 'A FILM BY YOU', font: 'Manrope', style: 'glow', color: '#ffffff', accent: '#ffffff', glow: 25, spacing: 40, size: 5, animIn: 'none' } },
+  { name: 'Neon Glow', patch: { text: 'NEON', font: 'Righteous', style: 'neon', color: '#ffffff', accent: '#ff2d92', animIn: 'none' } },
+  { name: 'Bold Title', patch: { text: 'BIG MOMENT', font: 'Anton', style: 'shadow', color: '#ffffff', accent: '#000000', animIn: 'none' } },
+  { name: 'Golden Glow', patch: { text: 'Golden hour', font: 'Playfair Display', style: 'glow', color: '#fff4d6', accent: '#ffb000', animIn: 'none' } },
+  { name: 'Outline Pop', patch: { text: 'OUTLINE', font: 'Bebas Neue', style: 'outline', color: '#ffd60a', accent: '#ffd60a', animIn: 'none' } },
+  { name: 'Gradient', patch: { text: 'Vibes', font: 'Pacifico', style: 'gradient', color: '#30d5ff', accent: '#bf5af2', animIn: 'none' } },
+  { name: 'Label', patch: { text: 'SUBSCRIBE', font: 'Manrope', style: 'box', color: '#111111', accent: '#ffd60a', animIn: 'none' } },
+  { name: 'Typewriter', patch: { text: 'once upon a time…', font: 'Space Mono', style: 'plain', color: '#ffffff', accent: '#000000', animIn: 'none' } },
+  { name: 'Marker', patch: { text: 'wow!!', font: 'Permanent Marker', style: 'glow', color: '#32d74b', accent: '#32d74b', animIn: 'none' } },
+  { name: 'Red Alert', patch: { text: 'WAIT FOR IT', font: 'Bebas Neue', style: 'neon-outline', color: '#ff3b30', accent: '#ff3b30', size: 12, animIn: 'none' } },
+  { name: 'Purple Haze', patch: { text: 'MIDNIGHT', font: 'Orbitron', style: 'neon', color: '#ffffff', accent: '#bf5af2', size: 10, animIn: 'none' } },
+  { name: 'Comic Pop', patch: { text: 'BOOM!', font: 'Bangers', style: 'stroke', color: '#ffd60a', accent: '#111111', outline: 7, size: 16, animIn: 'none' } },
+  { name: 'Retro Arcade', patch: { text: 'GAME OVER', font: 'Press Start 2P', style: 'extrude', color: '#30d5ff', accent: '#ff2d92', size: 6, animIn: 'none' } },
+  { name: 'Wedding', patch: { text: 'Forever', font: 'Great Vibes', style: 'glow', color: '#fff4d6', accent: '#ffd60a', glow: 50, size: 14, animIn: 'none' } },
+  { name: 'Luxury', patch: { text: 'COLLECTION', font: 'Cinzel', style: 'plain', color: '#ffd60a', accent: '#000000', spacing: 30, size: 6, animIn: 'none' } },
+  { name: 'Vlog Title', patch: { text: 'day in my life', font: 'Caveat', style: 'shadow', color: '#ffffff', accent: '#000000', size: 11, animIn: 'none' } },
+  { name: 'Sport Hype', patch: { text: 'GAME DAY', font: 'Teko', style: 'stroke', color: '#ffffff', accent: '#ff3b30', outline: 6, size: 15, animIn: 'none', italic: true } },
+  { name: 'Horror', patch: { text: 'DON\'T LOOK', font: 'Creepster', style: 'glow', color: '#ff3b30', accent: '#000000', size: 13, animIn: 'none' } },
+  { name: 'Minimal', patch: { text: 'less is more', font: 'Syne', style: 'plain', color: '#ffffff', accent: '#000000', spacing: 10, size: 6, animIn: 'none' } },
   { name: 'Subtitle', patch: { text: 'and that\'s when it happened…', font: 'Poppins', style: 'shadow', color: '#ffffff', accent: '#000000', size: 5, y: 85, animIn: 'none', animOut: 'none' } },
-  { name: 'Yellow Caption', patch: { text: 'NO WAY', font: 'Montserrat', style: 'stroke', color: '#ffd60a', accent: '#000000', outline: 6, size: 9, y: 78, animIn: 'pop' } },
-  { name: 'Neon Sign', patch: { text: 'OPEN', font: 'Monoton', style: 'neon', color: '#ffffff', accent: '#30d5ff', size: 14, animIn: 'fade' } },
-  { name: 'Cyber Glow', patch: { text: 'SYSTEM ONLINE', font: 'Audiowide', style: 'neon-outline', color: '#32d74b', accent: '#32d74b', size: 8, animIn: 'typewriter' } },
-  { name: 'Chunky 3D', patch: { text: 'EPIC', font: 'Bungee', style: 'extrude', color: '#ffffff', accent: '#0a84ff', size: 15, animIn: 'pop' } },
-  { name: 'Magazine', patch: { text: 'Vogue Mood', font: 'Abril Fatface', style: 'plain', color: '#ffffff', accent: '#000000', size: 12, animIn: 'slide' } },
-  { name: 'Pink Label', patch: { text: 'NEW VIDEO', font: 'Archivo Black', style: 'box', color: '#ffffff', accent: '#ff2d92', size: 7, animIn: 'slide' } },
-  { name: 'Ice Outline', patch: { text: 'FROZEN', font: 'Staatliches', style: 'outline', color: '#30d5ff', accent: '#30d5ff', size: 14, animIn: 'zoom' } },
-  { name: 'Sunset Gradient', patch: { text: 'Summer', font: 'Lobster', style: 'gradient', color: '#ffd60a', accent: '#ff2d92', size: 14, animIn: 'pop' } },
-  { name: 'Fire', patch: { text: 'ON FIRE', font: 'Russo One', style: 'glow', color: '#ffd60a', accent: '#ff3b30', glow: 140, size: 11, animIn: 'zoom' } },
-  { name: 'Handwritten', patch: { text: 'thank you', font: 'Dancing Script', style: 'plain', color: '#ffffff', accent: '#000000', size: 11, animIn: 'typewriter' } },
-  { name: 'Bold Box Dark', patch: { text: 'CHAPTER 1', font: 'Oswald', style: 'box', color: '#ffffff', accent: '#111111', spacing: 15, size: 6, animIn: 'fade' } },
-  { name: 'Rounded Cute', patch: { text: 'so cute!', font: 'Fredoka', style: 'stroke', color: '#ffffff', accent: '#ff2d92', outline: 6, size: 11, animIn: 'pop' } },
-  { name: 'Massive', patch: { text: 'HUGE', font: 'Unbounded', style: 'shadow', color: '#ffffff', accent: '#000000', size: 20, animIn: 'zoom' } },
+  { name: 'Yellow Caption', patch: { text: 'NO WAY', font: 'Montserrat', style: 'stroke', color: '#ffd60a', accent: '#000000', outline: 6, size: 9, y: 78, animIn: 'none' } },
+  { name: 'Neon Sign', patch: { text: 'OPEN', font: 'Monoton', style: 'neon', color: '#ffffff', accent: '#30d5ff', size: 14, animIn: 'none' } },
+  { name: 'Cyber Glow', patch: { text: 'SYSTEM ONLINE', font: 'Audiowide', style: 'neon-outline', color: '#32d74b', accent: '#32d74b', size: 8, animIn: 'none' } },
+  { name: 'Chunky 3D', patch: { text: 'EPIC', font: 'Bungee', style: 'extrude', color: '#ffffff', accent: '#0a84ff', size: 15, animIn: 'none' } },
+  { name: 'Magazine', patch: { text: 'Vogue Mood', font: 'Abril Fatface', style: 'plain', color: '#ffffff', accent: '#000000', size: 12, animIn: 'none' } },
+  { name: 'Pink Label', patch: { text: 'NEW VIDEO', font: 'Archivo Black', style: 'box', color: '#ffffff', accent: '#ff2d92', size: 7, animIn: 'none' } },
+  { name: 'Ice Outline', patch: { text: 'FROZEN', font: 'Staatliches', style: 'outline', color: '#30d5ff', accent: '#30d5ff', size: 14, animIn: 'none' } },
+  { name: 'Sunset Gradient', patch: { text: 'Summer', font: 'Lobster', style: 'gradient', color: '#ffd60a', accent: '#ff2d92', size: 14, animIn: 'none' } },
+  { name: 'Fire', patch: { text: 'ON FIRE', font: 'Russo One', style: 'glow', color: '#ffd60a', accent: '#ff3b30', glow: 140, size: 11, animIn: 'none' } },
+  { name: 'Handwritten', patch: { text: 'thank you', font: 'Dancing Script', style: 'plain', color: '#ffffff', accent: '#000000', size: 11, animIn: 'none' } },
+  { name: 'Bold Box Dark', patch: { text: 'CHAPTER 1', font: 'Oswald', style: 'box', color: '#ffffff', accent: '#111111', spacing: 15, size: 6, animIn: 'none' } },
+  { name: 'Rounded Cute', patch: { text: 'so cute!', font: 'Fredoka', style: 'stroke', color: '#ffffff', accent: '#ff2d92', outline: 6, size: 11, animIn: 'none' } },
+  { name: 'Massive', patch: { text: 'HUGE', font: 'Unbounded', style: 'shadow', color: '#ffffff', accent: '#000000', size: 20, animIn: 'none' } },
 ];
 
 export function makeText(start: number, patch: Partial<TextLayer> = {}): TextLayer {
-  return { id: uid('text'), type: 'text', start, duration: 4, x: 50, y: 50, rotation: 0, opacity: 1, animIn: 'fade', animOut: 'fade', text: 'Your text', font: 'Manrope', size: 11, color: '#ffffff', accent: '#ff2d92', style: 'plain', bold: true, align: 'center', ...patch };
+  return { id: uid('text'), type: 'text', start, duration: 4, x: 50, y: 50, rotation: 0, opacity: 1, animIn: 'none', animOut: 'none', text: 'Your text', font: 'Manrope', size: 11, color: '#ffffff', accent: '#ff2d92', style: 'plain', bold: true, align: 'center', ...patch };
 }
 export function makeClip(asset: MediaAsset, imageDuration: number): Clip {
   return { id: uid('clip'), mediaId: asset.id, kind: asset.kind === 'video' ? 'video' : 'image', in: 0, out: asset.kind === 'video' ? asset.duration : imageDuration, speed: 1, volume: 100, muted: false, filter: 'none', adjust: neutralAdjust(), rotate: 0, flipH: false, flipV: false, motion: 'none', transition: { type: 'none', duration: 0.6 } };
