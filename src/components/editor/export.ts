@@ -6,7 +6,7 @@ export async function exportVideo(options: { media: MediaItem; layers: TextLayer
   const { media, layers, ratio, duration, effect, adjustments, resolution, onProgress, signal, hiddenText } = options;
   const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(type => MediaRecorder.isTypeSupported(type));
   if (!mime) throw new Error('WebM export is not supported here. Try Chrome or Edge.');
-  const [rw, rh] = ratio.split(':').map(Number);
+  const [rw = 16, rh = 9] = ratio.split(':').map(Number);
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(resolution * rw / rh); canvas.height = resolution;
   const ctx = canvas.getContext('2d');

@@ -8,12 +8,13 @@ type Props = { media: MediaItem; layers: TextLayer[]; selected: string; onSelect
 export default function Preview({ media, layers, selected, onSelect, onUpdate, ratio, time, playing, effect, adjustments, hiddenText, videoRef, canvasRef }: Props) {
   const [size, setSize] = useState({ width: 640, height: 360 });
   const areaRef = useRef<HTMLDivElement>(null);
-  const [w, h] = ratio.split(':').map(Number);
+  const [w = 16, h = 9] = ratio.split(':').map(Number);
   const aspect = w / h;
   useEffect(() => {
     const area = areaRef.current;
     if (!area) return;
     const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
       const width = Math.max(1, entry.contentRect.width - 4);
       const height = Math.max(1, entry.contentRect.height - 4);
       const fittedWidth = Math.min(width, height * aspect);
