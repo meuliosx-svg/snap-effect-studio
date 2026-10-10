@@ -45,7 +45,7 @@ function ClipView({ clip, asset, sourceTime, playing, fx, progress, size, hidden
   const sx = fx.scale * m.scale * (clip.flipH ? -1 : 1); const sy = fx.scale * m.scale * (clip.flipV ? -1 : 1);
   const style: CSSProperties = {
     width: dw, height: dh, opacity: hidden ? 0 : fx.opacity, filter: lookCss(clip.filter, clip.adjust),
-    transform: `translate(-50%, -50%) translate(${fx.tx}%, ${fx.ty}%) rotate(${fx.rotate + clip.rotate}deg) scale(${sx}, ${sy}) translateX(${(m.tx / 100) * size.w / Math.max(0.01, m.scale)}px)`,
+    transform: `translate(-50%, -50%) translate(${(fx.tx / 100) * size.w}px, ${(fx.ty / 100) * size.h}px) rotate(${fx.rotate + clip.rotate}deg) scale(${sx}, ${sy}) translateX(${(m.tx / 100) * size.w}px)`,
   };
   const tint = temperatureTint(clip.adjust.temperature);
   return <div className="clip-frame" style={{ clipPath: fx.clipRight ? `inset(0 ${fx.clipRight}% 0 0)` : undefined, visibility: hidden ? 'hidden' : undefined }}>

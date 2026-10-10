@@ -1,5 +1,5 @@
 // Real-time export: plays the timeline into a canvas + mixed audio and records it with MediaRecorder.
-import { isActive, placeClips, projectDuration, clamp, type Project } from './model';
+import { placeClips, projectDuration, clamp, type Project } from './model';
 import { mediaUrl } from './storage';
 import { drawFrame, frameSize } from './render';
 
@@ -104,4 +104,3 @@ export async function exportProject(p: Project, opts: { resolution: number; fps:
   try { return { blob: await finished, ext: support.ext }; }
   finally { cancelAnimationFrame(raf); clearTimeout(timer); stream.getTracks().forEach(tr => tr.stop()); src.dispose(); void audioCtx?.close(); }
 }
-export { isActive };
