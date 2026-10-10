@@ -37,7 +37,7 @@ function AudioEl(props: SyncOpts & { src: string }) {
 
 const idleFx: FrameFx = { opacity: 1, tx: 0, ty: 0, scale: 1, rotate: 0, clipRight: 0 };
 
-function ClipView({ clip, asset, sourceTime, playing, fx, progress, size, hidden }: { clip: Clip; asset: MediaAsset; sourceTime: number; playing: boolean; fx: FrameFx; progress: number; size: { w: number; h: number }; hidden?: boolean }) {
+function ClipView({ clip, asset, sourceTime, playing, fx, progress, size, hidden }: { clip: Clip; asset: MediaAsset; sourceTime: number; playing: boolean; fx: FrameFx; progress: number; size: { w: number; h: number }; hidden?: boolean | undefined }) {
   const rotated = Math.abs(clip.rotate % 180) === 90;
   const aw = rotated ? asset.height : asset.width; const ah = rotated ? asset.width : asset.height;
   const s = Math.min(size.w / Math.max(1, aw), size.h / Math.max(1, ah)); const dw = asset.width * s; const dh = asset.height * s;
