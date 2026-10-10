@@ -127,7 +127,7 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
     let body: React.ReactNode = null;
     if (l.type === 'text') {
       const shown = l.animIn === 'typewriter' ? l.text.slice(0, a.chars) : l.text;
-      body = <div className={`txt txt-${l.style}`} style={{ fontFamily: `"${l.font}"`, fontWeight: fontWeight(l.font, l.bold), fontSize: `${l.size}cqh`, textAlign: l.align, ['--c' as string]: l.color, ['--a' as string]: l.accent }}>
+      body = <div className={`txt txt-${l.style}`} style={{ fontFamily: `"${l.font}"`, fontWeight: fontWeight(l.font, l.bold), fontStyle: l.italic ? 'italic' : 'normal', lineHeight: l.lineHeight ?? 1.12, fontSize: `${l.size}cqh`, textAlign: l.align, ['--glow' as string]: `${(l.glow ?? 100) / 200}em`, ['--outline' as string]: `${(l.outline ?? 4.5) / 100}em`, ['--c' as string]: l.color, ['--a' as string]: l.accent }}>
         <span className="txt-ghost">{l.text}</span><span className="txt-live">{shown}</span>
       </div>;
     } else if (l.type === 'sticker') body = <div className="sticker" style={{ fontSize: `${l.size}cqh` }}>{l.emoji}</div>;

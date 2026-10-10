@@ -26,7 +26,7 @@ export const putBlob = (id: string, blob: Blob) => run('blobs', 'readwrite', s =
 export const getBlob = (id: string) => run<Blob>('blobs', 'readonly', s => s.get(id) as IDBRequest<Blob>);
 export async function deleteProject(p: Project) {
   await run('projects', 'readwrite', s => { s.delete(p.id); });
-  await run('blobs', 'readwrite', s => { Object.keys(p.media).forEach(id => s.delete(id)); });
+  await run('blobs', 'readwrite', s => { Object.keys(p.media).forEach(id => s.delete(id)); (p.fonts ?? []).forEach(font => s.delete(font.id)); });
 }
 
 // Object URLs for media, shared across the app.
@@ -34,6 +34,8 @@ const urls = new Map<string, string>();
 export const mediaUrl = (id: string) => urls.get(id) ?? '';
 export const registerUrl = (id: string, blob: Blob) => { const existing = urls.get(id); if (existing) return existing; const url = URL.createObjectURL(blob); urls.set(id, url); return url; };
 export async function loadProjectMedia(p: Project) {
+  const { loadProjectFonts } = await import('./fonts');
+  await loadProjectFonts(p);
   const missing: string[] = [];
   await Promise.all(Object.keys(p.media).map(async id => { if (urls.has(id)) return; const blob = await getBlob(id).catch(() => undefined); if (blob) registerUrl(id, blob); else missing.push(id); }));
   return missing;

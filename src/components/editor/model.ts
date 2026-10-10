@@ -18,8 +18,8 @@ export type Clip = {
 };
 
 type LayerBase = { id: string; start: number; duration: number; x: number; y: number; rotation: number; opacity: number; animIn: AnimIn; animOut: AnimOut };
-export type TextStyle = 'plain' | 'glow' | 'neon' | 'outline' | 'shadow' | 'gradient' | 'box';
-export type TextLayer = LayerBase & { type: 'text'; text: string; font: string; size: number; color: string; accent: string; style: TextStyle; bold: boolean; align: 'left' | 'center' | 'right' };
+export type TextStyle = 'plain' | 'glow' | 'neon' | 'outline' | 'neon-outline' | 'shadow' | 'gradient' | 'box';
+export type TextLayer = LayerBase & { type: 'text'; text: string; font: string; size: number; color: string; accent: string; style: TextStyle; bold: boolean; align: 'left' | 'center' | 'right'; italic?: boolean; lineHeight?: number; glow?: number; outline?: number };
 export type MediaLayer = LayerBase & { type: 'media'; mediaId: string; kind: 'video' | 'image'; in: number; width: number; volume: number; muted: boolean; filter: string; adjust: Adjust };
 export type StickerLayer = LayerBase & { type: 'sticker'; emoji: string; size: number };
 export type EffectLayer = LayerBase & { type: 'effect'; effect: EffectType; intensity: number };
@@ -29,7 +29,8 @@ export type VisualLayer = TextLayer | MediaLayer | StickerLayer;
 
 export type EffectType = 'blur' | 'mono' | 'sepia' | 'invert' | 'shake' | 'pulse' | 'flash' | 'glitch' | 'vignette' | 'rainbow' | 'darken';
 export type Aspect = '16:9' | '9:16' | '1:1' | '4:5' | '4:3';
-export type Project = { id: string; name: string; aspect: Aspect; background: string; imageDuration: number; clips: Clip[]; layers: Layer[]; media: Record<string, MediaAsset>; createdAt: number; updatedAt: number };
+export type ProjectFont = { id: string; family: string; name: string };
+export type Project = { id: string; name: string; aspect: Aspect; background: string; imageDuration: number; clips: Clip[]; layers: Layer[]; media: Record<string, MediaAsset>; fonts?: ProjectFont[]; createdAt: number; updatedAt: number };
 export type Selection = { kind: 'clip' | 'layer' | 'transition'; id: string } | null;
 
 export const ASPECTS: Aspect[] = ['16:9', '9:16', '1:1', '4:5', '4:3'];
@@ -68,7 +69,8 @@ export const isActive = (l: { start: number; duration: number }, t: number) => t
 
 // Pack layers into lanes so that non-overlapping layers share a row.
 export function packLanes(layers: Layer[]) {
-  const visual = layers.filter(l => l.type !== 'audio');
+  const visual = layers.filter(l => l.type !== 'audio' && l.type !== 'text');
+  const text = layers.filter(l => l.type === 'text');
   const audio = layers.filter(l => l.type === 'audio');
   const pack = (list: Layer[]) => {
     const lanes: Layer[][] = [];
@@ -78,7 +80,7 @@ export function packLanes(layers: Layer[]) {
     });
     return lanes;
   };
-  return { visual: pack(visual), audio: pack(audio) };
+  return { visual: pack(visual), text: pack(text), audio: pack(audio) };
 }
 
 // ---------- look ----------
@@ -196,12 +198,15 @@ export const FONTS = [
 export const fontWeight = (font: string, bold: boolean) => (FONTS.find(f => f.id === font)?.weight ?? 700) >= 700 ? (bold ? 800 : 600) : 400;
 export const TEXT_STYLES: { id: TextStyle; name: string }[] = [
   { id: 'plain', name: 'Plain' }, { id: 'glow', name: 'Glow' }, { id: 'neon', name: 'Neon' }, { id: 'outline', name: 'Outline' },
-  { id: 'shadow', name: 'Shadow' }, { id: 'gradient', name: 'Gradient' }, { id: 'box', name: 'Label' },
+  { id: 'neon-outline', name: 'Outline glow' }, { id: 'shadow', name: 'Shadow' }, { id: 'gradient', name: 'Gradient' }, { id: 'box', name: 'Label' },
 ];
 export const SWATCHES = ['#ffffff', '#111111', '#ffd60a', '#ff3b30', '#ff2d92', '#bf5af2', '#0a84ff', '#30d5ff', '#32d74b', '#ff9f0a'];
 export const STICKERS = ['🔥', '✨', '❤️', '😂', '😍', '👀', '💯', '⭐', '🎉', '👑', '💥', '⚡', '🌈', '☀️', '🌙', '🎵', '📍', '✅', '👉', '🙌', '😎', '🤯', '🥳', '💀'];
 
 export const TEXT_PRESETS: { name: string; patch: Partial<TextLayer> }[] = [
+  { name: 'Cinematic Blue', patch: { text: 'THE NEXT CHAPTER', font: 'Bebas Neue', style: 'neon-outline', color: '#30d5ff', accent: '#30d5ff', size: 12, y: 72, animIn: 'none', animOut: 'none' } },
+  { name: 'Ember Outline', patch: { text: 'MEMES ABOUT ME?', font: 'Anton', style: 'neon-outline', color: '#ff9f0a', accent: '#ff3b30', size: 10, y: 65, animIn: 'none', animOut: 'none' } },
+  { name: 'Clean Caption', patch: { text: 'WHAT ARE YOU?', font: 'Manrope', style: 'glow', color: '#ffffff', accent: '#ff9f0a', size: 7, y: 58, glow: 35, animIn: 'none', animOut: 'none' } },
   { name: 'Neon Glow', patch: { text: 'NEON', font: 'Righteous', style: 'neon', color: '#ffffff', accent: '#ff2d92', animIn: 'fade' } },
   { name: 'Bold Title', patch: { text: 'BIG MOMENT', font: 'Anton', style: 'shadow', color: '#ffffff', accent: '#000000', animIn: 'pop' } },
   { name: 'Golden Glow', patch: { text: 'Golden hour', font: 'Playfair Display', style: 'glow', color: '#fff4d6', accent: '#ffb000', animIn: 'zoom' } },
