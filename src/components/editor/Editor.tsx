@@ -5,6 +5,10 @@ import Preview, { unlockMedia } from './Preview';
 import Timeline from './Timeline';
 import { createClock } from './clock';
 import { importFile } from './media';
+import type { BlendMode } from './model';
+import { BLEND_MODES } from './model';
+const OVERLAY_FILES = import.meta.glob('@/assets/overlays/*.asset.json', { eager: true, import: 'default' }) as Record<string, { url: string; original_filename: string }>;
+const SAMPLE_OVERLAYS = Object.values(OVERLAY_FILES).map(a => ({ url: a.url, name: a.original_filename.replace(/_Ripple_Overlay\.mp4$/, '').replace(/_/g, ' ') + ' ripple' }));
 import { putProject } from './storage';
 import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
@@ -14,7 +18,7 @@ import {
   type Adjust, type AnimLoop, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
-type Sheet = null | 'text' | 'textEdit' | 'sticker' | 'effect' | 'filter' | 'adjust' | 'speed' | 'volume' | 'transform' | 'anim' | 'transition' | 'canvas' | 'export' | 'layer' | 'audio';
+type Sheet = null | 'text' | 'textEdit' | 'sticker' | 'effect' | 'filter' | 'adjust' | 'speed' | 'volume' | 'transform' | 'anim' | 'transition' | 'canvas' | 'export' | 'layer' | 'audio' | 'library';
 const base = (start: number, duration: number) => ({ start, duration, x: 50, y: 50, rotation: 0, opacity: 1, animIn: 'none' as AnimIn, animOut: 'none' as AnimOut });
 
 export default function Editor({ initial, onExit }: { initial: Project; onExit: () => void }) {
@@ -73,14 +77,14 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
 
   // ---------- media ----------
   const pickFiles = (mode: 'main' | 'overlay' | 'audio') => { importMode.current = mode; const el = fileRef.current; if (!el) return; el.accept = mode === 'audio' ? 'audio/*,video/*' : 'video/*,image/*'; el.value = ''; el.click(); };
-  const addAssets = (assets: MediaAsset[], mode: 'main' | 'overlay' | 'audio', voice = false) => {
+  const addAssets = (assets: MediaAsset[], mode: 'main' | 'overlay' | 'audio', voice = false, blend?: BlendMode) => {
     const t = clock.get(); let selectId: Selection = null;
     apply(p => {
       const media = { ...p.media }; let clips = p.clips; let layers = p.layers;
       assets.forEach(a => {
         media[a.id] = a;
         if (mode === 'audio' || a.kind === 'audio') { const l: Layer = { id: uid('aud'), type: 'audio', start: t, duration: a.duration, mediaId: a.id, in: 0, volume: 100, muted: false, fadeIn: 0, fadeOut: 0, name: a.name, voice }; layers = [...layers, l]; selectId = { kind: 'layer', id: l.id }; }
-        else if (mode === 'overlay') { const l: Layer = { ...base(t, a.kind === 'video' ? a.duration : 4), id: uid('ovl'), type: 'media', mediaId: a.id, kind: a.kind === 'video' ? 'video' : 'image', in: 0, width: 55, volume: 100, muted: false, filter: 'none', adjust: neutralAdjust() }; layers = [...layers, l]; selectId = { kind: 'layer', id: l.id }; }
+        else if (mode === 'overlay') { const l: Layer = { ...base(t, a.kind === 'video' ? a.duration : 4), id: uid('ovl'), type: 'media', mediaId: a.id, kind: a.kind === 'video' ? 'video' : 'image', in: 0, width: 55, volume: 100, muted: false, filter: 'none', adjust: neutralAdjust(), ...(blend ? { blend, width: 100 } : {}) }; layers = [...layers, l]; selectId = { kind: 'layer', id: l.id }; }
         else { const c = makeClip(a, p.imageDuration); clips = [...clips, c]; }
       });
       return { ...p, media, clips, layers };
@@ -94,6 +98,11 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     setBusy(null); if (assets.length) { addAssets(assets, mode); flash(`Added ${assets.length} item${assets.length > 1 ? 's' : ''}`); }
   };
 
+  const addSample = async (s: { url: string; name: string }) => {
+    setBusy('Adding overlay…');
+    try { const blob = await (await fetch(s.url)).blob(); const a = await importFile(new File([blob], s.name + '.mp4', { type: 'video/mp4' })); addAssets([a], 'overlay', false, 'screen'); flash(`Added ${s.name}`); }
+    catch { flash("Couldn't load that overlay"); } finally { setBusy(null); }
+  };
   // ---------- record voice ----------
   const startRec = async () => {
     if (rec) { rec.stop(); return; }
@@ -192,7 +201,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     if (selLayer.type === 'sticker') return [...common, toolBtn('Sticker', Smile, () => setSheet('sticker')), toolBtn('Animate', Wand2, () => setSheet('anim')), ...rest];
     if (selLayer.type === 'effect') return [...common, toolBtn('Effect', Sparkles, () => setSheet('effect')), ...rest];
     if (selLayer.type === 'audio') return [...common, toolBtn('Volume', Volume2, () => setSheet('volume')), ...rest];
-    return [...common, toolBtn('Filters', Palette, () => setSheet('filter')), toolBtn('Adjust', SlidersHorizontal, () => setSheet('adjust')), ...(selLayer.kind === 'video' ? [toolBtn('Volume', Volume2, () => setSheet('volume'))] : []), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Opacity', Layers, () => setSheet('transform')), ...rest];
+    return [...common, toolBtn('Filters', Palette, () => setSheet('filter')), toolBtn('Adjust', SlidersHorizontal, () => setSheet('adjust')), ...(selLayer.kind === 'video' ? [toolBtn('Volume', Volume2, () => setSheet('volume'))] : []), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Blend & opacity', Layers, () => setSheet('transform')), ...rest];
   };
 
   return <div className={`ed ${full ? 'is-full' : ''}`}>
@@ -241,6 +250,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
         {toolBtn('Text', Type, () => setSheet('text'))}
         {toolBtn('Audio', Music2, () => setSheet('audio'))}
         {toolBtn('Overlay', Layers, () => setSheet('layer'))}
+        {toolBtn('Library', Film, () => { select(null); setSheet('library'); })}
         {toolBtn('Effects', Sparkles, () => { select(null); setSheet('effect'); })}
         {toolBtn('Filters', Palette, () => openLook('filter'))}
         {toolBtn('Adjust', SlidersHorizontal, () => openLook('adjust'))}
@@ -256,7 +266,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
       <div className="sheet-head"><b>{SHEET_TITLES[sheet]}</b><Button variant="ghost" className="ic" aria-label="Close" onClick={() => setSheet(null)}><X /></Button></div>
       <div className="sheet-body">
         <SheetBody sheet={sheet} project={project} selClip={selClip} selLayer={selLayer} selTrans={selTrans} lookTarget={lookTarget()}
-          patchClip={patchClip} patchLayer={patchLayer} beginGesture={beginGesture} apply={apply} addText={addText} addSticker={addSticker} addEffect={addEffect}
+          patchClip={patchClip} patchLayer={patchLayer} beginGesture={beginGesture} apply={apply} addText={addText} addSticker={addSticker} addSample={addSample} addEffect={addEffect}
           pickFiles={m => { setSheet(null); pickFiles(m); }} startRec={() => { setSheet(null); void startRec(); }} clockTime={t} flash={flash} setBusy={setBusy} />
       </div>
     </div>}
@@ -272,13 +282,13 @@ function TimeLabel({ clock, duration }: { clock: ReturnType<typeof createClock>;
   return <div className="time"><b>{formatClock(t).slice(3, 10)}</b> / {formatClock(duration).slice(3, 10)}</div>;
 }
 
-const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', audio: 'Audio' };
+const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', library: 'Library', audio: 'Audio' };
 
 type BodyProps = {
   sheet: Exclude<Sheet, null>; project: Project; selClip?: Clip | undefined; selLayer?: Layer | undefined; selTrans?: Clip | undefined;
   lookTarget: { kind: 'clip'; c: Clip } | { kind: 'layer'; l: Extract<Layer, { type: 'media' }> } | null;
   patchClip: (id: string, p: Partial<Clip>, record?: boolean) => void; patchLayer: (id: string, p: Partial<Layer>, record?: boolean) => void; beginGesture: () => void;
-  apply: (fn: (p: Project) => Project, record?: boolean) => void; addText: (p: Partial<TextLayer>) => void; addSticker: (e: string) => void; addEffect: (e: EffectType) => void;
+  apply: (fn: (p: Project) => Project, record?: boolean) => void; addText: (p: Partial<TextLayer>) => void; addSticker: (e: string) => void; addSample: (s: { url: string; name: string }) => void; addEffect: (e: EffectType) => void;
   pickFiles: (m: 'main' | 'overlay' | 'audio') => void; startRec: () => void; clockTime: () => number; flash: (m: string) => void; setBusy: (m: string | null) => void;
 };
 
@@ -291,6 +301,9 @@ const Chips = <T extends string>({ items, value, onPick }: { items: { id: T; nam
 
 function SheetBody(b: BodyProps) {
   const { sheet, project, selClip, selLayer, selTrans, lookTarget, patchClip, patchLayer, beginGesture, apply } = b;
+  if (sheet === 'library') return <><p className="lbl">Video overlays · added with Screen blend</p><div className="grid-tiles">
+    {SAMPLE_OVERLAYS.map(s => <Button variant="ghost" key={s.url} className="tile" onClick={() => b.addSample(s)}><video src={s.url} muted loop autoPlay playsInline style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} /><span>{s.name}</span></Button>)}
+  </div></>;
   if (sheet === 'layer') return <div className="grid-tiles">
     <Button variant="ghost" className="tile" onClick={() => b.pickFiles('overlay')}><ImagePlus /><span>Overlay photo / video</span></Button>
     <Button variant="ghost" className="tile" onClick={() => b.addText({})}><Type /><span>Text</span></Button>
@@ -353,6 +366,7 @@ function SheetBody(b: BodyProps) {
     </>;
     if (selLayer && selLayer.type !== 'audio') return <>
       <Slider label="Opacity" value={Math.round(selLayer.opacity * 100)} min={0} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { opacity: v / 100 })} />
+      {selLayer.type === 'media' && <><p className="lbl">Blend</p><Chips<BlendMode> items={BLEND_MODES} value={selLayer.blend ?? 'normal'} onPick={v => patchLayer(selLayer.id, { blend: v }, true)} /></>}
  {selLayer.type === 'media' && selLayer.kind === 'image' && <RemoveBgButton asset={project.media[selLayer.mediaId]} onDone={a => apply(p => ({ ...p, media: { ...p.media, [a.id]: a }, layers: p.layers.map(l => l.id === selLayer.id ? { ...l, mediaId: a.id } as Layer : l) }))} flash={b.flash} />}
       {selLayer.type === 'media' && <Slider label="Size" value={selLayer.width} min={5} max={300} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { width: v })} />}
       <Slider label="Rotation" value={selLayer.rotation} min={-180} max={180} unit="°" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { rotation: v })} />

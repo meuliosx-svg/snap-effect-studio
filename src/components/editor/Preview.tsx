@@ -150,7 +150,7 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
     const active = isActive(l, t); const selected = selection?.kind === 'layer' && selection.id === l.id;
     if (!active && !(l.type === 'media' && l.kind === 'video' && t >= l.start - 1.5 && t < l.start)) return null;
     const a = layerAnim(l, t, l.type === 'text' ? l.text.length : 0);
-    const style: CSSProperties = { left: `${l.x}%`, top: `${l.y}%`, opacity: active ? a.opacity : 0, transform: `translate(-50%, -50%) translate(${a.dx}cqw, ${a.dy}cqh) rotate(${l.rotation + a.rotation}deg) scale(${a.scale})` };
+    const style: CSSProperties = { mixBlendMode: l.blend && l.blend !== 'normal' ? l.blend : undefined, left: `${l.x}%`, top: `${l.y}%`, opacity: active ? a.opacity : 0, transform: `translate(-50%, -50%) translate(${a.dx}cqw, ${a.dy}cqh) rotate(${l.rotation + a.rotation}deg) scale(${a.scale})` };
     let body: React.ReactNode = null;
     if (l.type === 'text') {
       const shown = l.animIn === 'typewriter' ? l.text.slice(0, a.chars) : l.text;
