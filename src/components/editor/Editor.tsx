@@ -266,7 +266,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
       <div className="sheet-head"><b>{SHEET_TITLES[sheet]}</b><Button variant="ghost" className="ic" aria-label="Close" onClick={() => setSheet(null)}><X /></Button></div>
       <div className="sheet-body">
         <SheetBody sheet={sheet} project={project} selClip={selClip} selLayer={selLayer} selTrans={selTrans} lookTarget={lookTarget()}
-          patchClip={patchClip} patchLayer={patchLayer} beginGesture={beginGesture} apply={apply} addText={addText} addSticker={addSticker} addEffect={addEffect}
+          patchClip={patchClip} patchLayer={patchLayer} beginGesture={beginGesture} apply={apply} addText={addText} addSticker={addSticker} addSample={addSample} addEffect={addEffect}
           pickFiles={m => { setSheet(null); pickFiles(m); }} startRec={() => { setSheet(null); void startRec(); }} clockTime={t} flash={flash} setBusy={setBusy} />
       </div>
     </div>}
