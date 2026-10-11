@@ -1,4 +1,5 @@
 # FRAME editor
+- [ ] Current request: Overlay Splice with Burn/Dodge and 1–100 opacity; categorized overlay, CC and haze/flare presets beside each tool; verify saving and rendering.
 - [ ] Current request: visible scrollable side tools, compact ordered timeline, cinematic text options and local font imports.
 - [ ] Current request: accessible slow-motion/speed and ratio controls; verify project saving and browser editing flow.
 - [x] First version: workspace, text, effects, color, export.
