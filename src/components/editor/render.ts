@@ -42,7 +42,7 @@ function drawMedia(ctx: CanvasRenderingContext2D, p: Project, l: MediaLayer, t: 
   if (!asset || !el) return;
   const a = layerAnim(l, t); const dw = (l.width / 100) * W; const dh = dw * (asset.height / Math.max(1, asset.width));
   ctx.save(); ctx.globalAlpha = a.opacity; ctx.translate(((l.x + a.dx) / 100) * W, ((l.y + a.dy) / 100) * H); ctx.rotate(((l.rotation + a.rotation) * Math.PI) / 180); ctx.scale(a.scale, a.scale);
-  ctx.filter = lookCss(l.filter, l.adjust, effectFilter); ctx.drawImage(el, -dw / 2, -dh / 2, dw, dh); ctx.filter = 'none'; ctx.restore();
+  if (l.blend && l.blend !== 'normal') ctx.globalCompositeOperation = l.blend; ctx.filter = lookCss(l.filter, l.adjust, effectFilter); ctx.drawImage(el, -dw / 2, -dh / 2, dw, dh); ctx.filter = 'none'; ctx.restore();
 }
 
 export function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, t: number, W: number, H: number) {
