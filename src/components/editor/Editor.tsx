@@ -282,7 +282,7 @@ function TimeLabel({ clock, duration }: { clock: ReturnType<typeof createClock>;
   return <div className="time"><b>{formatClock(t).slice(3, 10)}</b> / {formatClock(duration).slice(3, 10)}</div>;
 }
 
-const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', audio: 'Audio' };
+const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', library: 'Library', audio: 'Audio' };
 
 type BodyProps = {
   sheet: Exclude<Sheet, null>; project: Project; selClip?: Clip | undefined; selLayer?: Layer | undefined; selTrans?: Clip | undefined;
