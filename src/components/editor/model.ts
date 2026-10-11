@@ -19,8 +19,8 @@ export type Clip = {
   fit?: 'fit' | 'fill'; zoom?: number; panX?: number; panY?: number;
 };
 
-export type BlendMode = 'normal' | 'screen' | 'lighten' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'darken' | 'difference' | 'exclusion' | 'hue' | 'color' | 'luminosity';
-export const BLEND_MODES: { id: BlendMode; name: string }[] = [{ id: 'normal', name: 'Normal' }, { id: 'screen', name: 'Screen' }, { id: 'lighten', name: 'Lighten' }, { id: 'color-dodge', name: 'Dodge' }, { id: 'overlay', name: 'Overlay' }, { id: 'soft-light', name: 'Soft light' }, { id: 'hard-light', name: 'Hard light' }, { id: 'multiply', name: 'Multiply' }, { id: 'darken', name: 'Darken' }, { id: 'difference', name: 'Difference' }, { id: 'exclusion', name: 'Exclusion' }, { id: 'hue', name: 'Hue' }, { id: 'color', name: 'Color' }, { id: 'luminosity', name: 'Luminosity' }];
+export type BlendMode = 'normal' | 'screen' | 'lighten' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'difference' | 'exclusion' | 'hue' | 'color' | 'luminosity';
+export const BLEND_MODES: { id: BlendMode; name: string }[] = [{ id: 'normal', name: 'Normal' }, { id: 'screen', name: 'Screen' }, { id: 'lighten', name: 'Lighten' }, { id: 'color-dodge', name: 'Dodge' }, { id: 'color-burn', name: 'Burn' }, { id: 'overlay', name: 'Overlay' }, { id: 'soft-light', name: 'Soft light' }, { id: 'hard-light', name: 'Hard light' }, { id: 'multiply', name: 'Multiply' }, { id: 'darken', name: 'Darken' }, { id: 'difference', name: 'Difference' }, { id: 'exclusion', name: 'Exclusion' }, { id: 'hue', name: 'Hue' }, { id: 'color', name: 'Color' }, { id: 'luminosity', name: 'Luminosity' }];
 type LayerBase = { blend?: BlendMode; id: string; start: number; duration: number; x: number; y: number; rotation: number; opacity: number; animIn: AnimIn; animOut: AnimOut; animLoop?: AnimLoop; animDuration?: number; animAmount?: number; animLoopSpeed?: number; animEasing?: 'linear' | 'smooth' | 'bounce' };
 export type TextStyle = 'plain' | 'glow' | 'neon' | 'outline' | 'neon-outline' | 'shadow' | 'gradient' | 'box' | 'stroke' | 'extrude';
 export type TextLayer = LayerBase & { type: 'text'; text: string; font: string; size: number; color: string; accent: string; style: TextStyle; bold: boolean; align: 'left' | 'center' | 'right'; italic?: boolean; lineHeight?: number; glow?: number; outline?: number; spacing?: number; caps?: boolean };
@@ -40,6 +40,14 @@ export type Selection = { kind: 'clip' | 'layer' | 'transition'; id: string } | 
 export const ASPECTS: Aspect[] = ['16:9', '9:16', '1:1', '4:5', '4:3'];
 export const aspectValue = (a: Aspect) => { const [w = 16, h = 9] = a.split(':').map(Number); return w / h; };
 export const neutralAdjust = (): Adjust => ({ brightness: 0, contrast: 0, saturation: 0, temperature: 0, hue: 0, vignette: 0 });
+export const CC_PRESETS: { name: string; adjust: Adjust }[] = [
+  { name: 'Original', adjust: neutralAdjust() },
+  { name: 'Cool edit', adjust: { ...neutralAdjust(), contrast: 22, saturation: -12, temperature: -24, vignette: 15 } },
+  { name: 'Bright edit', adjust: { ...neutralAdjust(), brightness: 24, contrast: 10, saturation: 12 } },
+  { name: 'Soft haze', adjust: { ...neutralAdjust(), brightness: 15, contrast: -25, saturation: -15 } },
+  { name: 'Golden flare', adjust: { ...neutralAdjust(), brightness: 12, contrast: -12, temperature: 30, saturation: 16 } },
+  { name: 'Crisp cinema', adjust: { ...neutralAdjust(), contrast: 32, saturation: -18, vignette: 25 } },
+];
 export const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 export const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -118,7 +126,7 @@ export function adjustCss(a: Adjust) {
 export const lookCss = (filter: string, a: Adjust, extra = '') => [filterCss(filter), adjustCss(a), extra].filter(Boolean).join(' ').trim() || 'none';
 export const temperatureTint = (t: number) => t > 0 ? `rgba(255,140,30,${t / 250})` : t < 0 ? `rgba(40,130,255,${-t / 250})` : '';
 
-export type EffectGroup = 'Cinematic' | 'Motion' | 'Color' | 'Glitch & Light';
+export type EffectGroup = 'Cinematic' | 'Motion' | 'Color' | 'Glitch & Light' | 'Haze & flare';
 export const EFFECTS: { id: EffectType; name: string; group: EffectGroup; css: string }[] = [
   { id: 'letterbox', name: 'Cinema Bars', group: 'Cinematic', css: '' }, { id: 'dreamy', name: 'Dreamy', group: 'Cinematic', css: 'blur(1.5px) brightness(1.15) saturate(1.2)' },
   { id: 'punch', name: 'Punch', group: 'Cinematic', css: 'contrast(1.4) saturate(1.4)' }, { id: 'vignette', name: 'Vignette', group: 'Cinematic', css: 'brightness(.85)' }, { id: 'darken', name: 'Darken', group: 'Cinematic', css: 'brightness(.5)' },
@@ -130,13 +138,13 @@ export const EFFECTS: { id: EffectType; name: string; group: EffectGroup; css: s
   { id: 'zoomblur', name: 'Zoom Blur In', group: 'Motion', css: 'blur(2px)' }, { id: 'heartbeat', name: 'Heartbeat', group: 'Motion', css: '' }, { id: 'bounce', name: 'Bounce', group: 'Motion', css: '' },
   { id: 'swing', name: 'Swing', group: 'Motion', css: '' }, { id: 'dolly', name: 'Dolly Zoom', group: 'Motion', css: 'blur(.6px)' },
   { id: 'film', name: 'Film Grain', group: 'Cinematic', css: 'sepia(.25) contrast(1.1)' }, { id: 'noir', name: 'Noir', group: 'Cinematic', css: 'grayscale(1) contrast(1.6)' },
-  { id: 'fadein', name: 'Fade In', group: 'Cinematic', css: 'brightness(.5)' }, { id: 'fadeout', name: 'Fade Out', group: 'Cinematic', css: 'brightness(.4)' }, { id: 'hazy', name: 'Hazy', group: 'Cinematic', css: 'contrast(.7) brightness(1.15) blur(.8px)' },
+  { id: 'fadein', name: 'Fade In', group: 'Cinematic', css: 'brightness(.5)' }, { id: 'fadeout', name: 'Fade Out', group: 'Cinematic', css: 'brightness(.4)' }, { id: 'hazy', name: 'Hazy', group: 'Haze & flare', css: 'contrast(.7) brightness(1.15) blur(.8px)' },
   { id: 'golden', name: 'Golden Hour', group: 'Color', css: 'sepia(.4) saturate(1.5) hue-rotate(-15deg)' }, { id: 'cyber', name: 'Cyberpunk', group: 'Color', css: 'hue-rotate(200deg) saturate(1.8)' },
   { id: 'retro', name: 'Retro 70s', group: 'Color', css: 'sepia(.5) hue-rotate(-20deg) saturate(1.4)' }, { id: 'chrome', name: 'Chrome', group: 'Color', css: 'saturate(2.2) contrast(1.35)' },
-  { id: 'vhs', name: 'VHS', group: 'Glitch & Light', css: 'saturate(1.6) blur(.6px)' }, { id: 'bloom', name: 'Bloom', group: 'Glitch & Light', css: 'brightness(1.25) saturate(1.2)' },
+  { id: 'vhs', name: 'VHS', group: 'Glitch & Light', css: 'saturate(1.6) blur(.6px)' }, { id: 'bloom', name: 'Bloom', group: 'Haze & flare', css: 'brightness(1.25) saturate(1.2)' },
   { id: 'overexpose', name: 'Overexpose', group: 'Glitch & Light', css: 'brightness(1.6) contrast(.8)' }, { id: 'blackflash', name: 'Black Flash', group: 'Glitch & Light', css: 'brightness(.3)' }, { id: 'strobe', name: 'Strobe', group: 'Glitch & Light', css: 'brightness(1.5) contrast(1.3)' },
 ];
-export const EFFECT_GROUPS: EffectGroup[] = ['Cinematic', 'Motion', 'Color', 'Glitch & Light'];
+export const EFFECT_GROUPS: EffectGroup[] = ['Cinematic', 'Motion', 'Color', 'Glitch & Light', 'Haze & flare'];
 export const effectName = (id: EffectType) => EFFECTS.find(e => e.id === id)?.name ?? id;
 // Returns CSS filter + transform (in % of frame / deg) + overlay for the active effect layers.
 export function effectState(layers: Layer[], t: number) {
