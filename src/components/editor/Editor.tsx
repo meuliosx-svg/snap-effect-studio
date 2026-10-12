@@ -1,6 +1,6 @@
 import { removeBackground } from './removeBg';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Eraser, ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Minimize2, Type, Smile, Sparkles, Palette, SlidersHorizontal, Crop, Trash2, Scissors, Copy, Gauge, Volume2, Wand2, Film, Layers, Music2, Mic, Square, ChevronLeft, ChevronRight, RotateCw, FlipHorizontal, FlipVertical, Pencil, Clapperboard, ImagePlus, Download, X, ZoomIn, ZoomOut, Check, Loader2, Camera, ArrowLeftRight } from 'lucide-react';
+import { Crosshair, Eraser, ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Minimize2, Type, Smile, Sparkles, Palette, SlidersHorizontal, Crop, Trash2, Scissors, Copy, Gauge, Volume2, Wand2, Film, Layers, Music2, Mic, Square, ChevronLeft, ChevronRight, RotateCw, FlipHorizontal, FlipVertical, Pencil, Clapperboard, ImagePlus, Download, X, ZoomIn, ZoomOut, Check, Loader2, Camera, ArrowLeftRight } from 'lucide-react';
 import Preview, { unlockMedia } from './Preview';
 import Timeline from './Timeline';
 import { createClock } from './clock';
@@ -18,7 +18,7 @@ import {
   type Adjust, type AnimLoop, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
-type Sheet = null | 'text' | 'textEdit' | 'sticker' | 'effect' | 'filter' | 'adjust' | 'speed' | 'volume' | 'transform' | 'anim' | 'transition' | 'canvas' | 'export' | 'layer' | 'audio' | 'library';
+type Sheet = null | 'text' | 'textEdit' | 'sticker' | 'effect' | 'filter' | 'adjust' | 'speed' | 'volume' | 'transform' | 'anim' | 'transition' | 'canvas' | 'export' | 'layer' | 'audio' | 'library' | 'track';
 const base = (start: number, duration: number) => ({ start, duration, x: 50, y: 50, rotation: 0, opacity: 1, animIn: 'none' as AnimIn, animOut: 'none' as AnimOut });
 
 export default function Editor({ initial, onExit }: { initial: Project; onExit: () => void }) {
@@ -202,11 +202,11 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
       toolBtn('Move left', ChevronLeft, () => moveClip(-1)), toolBtn('Move right', ChevronRight, () => moveClip(1))];
     if (!selLayer) return [];
     const rest = [toolBtn('Split', Scissors, splitSelected), toolBtn('Duplicate', Copy, duplicateSelected)];
-    if (selLayer.type === 'text') return [...common, toolBtn('Edit', Pencil, () => setSheet('textEdit')), toolBtn('Animate', Wand2, () => setSheet('anim')), ...rest];
-    if (selLayer.type === 'sticker') return [...common, toolBtn('Sticker', Smile, () => setSheet('sticker')), toolBtn('Animate', Wand2, () => setSheet('anim')), ...rest];
+    if (selLayer.type === 'text') return [...common, toolBtn('Edit', Pencil, () => setSheet('textEdit')), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Track', Crosshair, () => setSheet('track')), ...rest];
+    if (selLayer.type === 'sticker') return [...common, toolBtn('Sticker', Smile, () => setSheet('sticker')), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Track', Crosshair, () => setSheet('track')), ...rest];
     if (selLayer.type === 'effect') return [...common, toolBtn('Effect', Sparkles, () => setSheet('effect')), ...rest];
     if (selLayer.type === 'audio') return [...common, toolBtn('Volume', Volume2, () => setSheet('volume')), ...rest];
-    return [...common, toolBtn('Filters', Palette, () => setSheet('filter')), toolBtn('Adjust', SlidersHorizontal, () => setSheet('adjust')), ...(selLayer.kind === 'video' ? [toolBtn('Volume', Volume2, () => setSheet('volume'))] : []), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Blend & opacity', Layers, () => setSheet('transform')), ...rest];
+    return [...common, toolBtn('Filters', Palette, () => setSheet('filter')), toolBtn('Adjust', SlidersHorizontal, () => setSheet('adjust')), ...(selLayer.kind === 'video' ? [toolBtn('Volume', Volume2, () => setSheet('volume'))] : []), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Track', Crosshair, () => setSheet('track')), toolBtn('Blend & opacity', Layers, () => setSheet('transform')), ...rest];
   };
 
   return <div className={`ed ${full ? 'is-full' : ''}`}>
@@ -287,7 +287,7 @@ function TimeLabel({ clock, duration }: { clock: ReturnType<typeof createClock>;
   return <div className="time"><b>{formatClock(t).slice(3, 10)}</b> / {formatClock(duration).slice(3, 10)}</div>;
 }
 
-const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', library: 'Library', audio: 'Audio' };
+const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', track: 'Motion tracking', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', library: 'Library', audio: 'Audio' };
 
 type BodyProps = {
   sheet: Exclude<Sheet, null>; project: Project; selClip?: Clip | undefined; selLayer?: Layer | undefined; selTrans?: Clip | undefined;
@@ -377,6 +377,7 @@ function SheetBody(b: BodyProps) {
       <Slider label="Rotation" value={selLayer.rotation} min={-180} max={180} unit="°" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { rotation: v })} />
     </>;
   }
+  if (sheet === 'track' && selLayer && selLayer.type !== 'audio' && selLayer.type !== 'effect') return <TrackPanel layer={selLayer} patchLayer={patchLayer} />;
   if (sheet === 'anim' && selLayer && selLayer.type !== 'audio' && selLayer.type !== 'effect') return <AnimationPanel layer={selLayer} patchLayer={patchLayer} beginGesture={beginGesture} />;
   if (sheet === 'textEdit' && selLayer?.type === 'text') { const l = selLayer; return <div className="text-menu">
     <textarea aria-label="Text content" className="txt-input" value={l.text} autoFocus rows={2} onFocus={beginGesture} onChange={e => patchLayer(l.id, { text: e.target.value })} />
@@ -469,6 +470,18 @@ function RemoveBgButton({ asset, onDone, flash }: { asset: MediaAsset | undefine
   }}><Eraser /> {busy ? 'Removing background…' : 'Remove background'}</Button>;
 }
 
+function TrackPanel({ layer, patchLayer }: { layer: Exclude<Layer, { type: 'audio' } | { type: 'effect' }>; patchLayer: BodyProps['patchLayer'] }) {
+  const clock = useContext(ClockCtx); const pts = layer.track ?? [];
+  const pin = () => { const t = clock ? clock.get() : layer.start; const p = trackPos(layer, t); patchLayer(layer.id, { track: setTrackPoint(layer.track, t - layer.start, p.x, p.y) }, true); };
+  return <div className="animation-menu">
+    <p className="lbl">Pin this layer to something moving: move the playhead, drag the layer onto the object, repeat. It glides smoothly between points in preview and export.</p>
+    <Button onClick={pin}><Crosshair /> {pts.length ? 'Add point at playhead' : 'Start tracking here'}</Button>
+    {pts.length > 0 && <>
+      <div className="animation-list">{pts.map((p, i) => <Button variant="ghost" key={i} className="animation-row" onClick={() => clock?.set(layer.start + p.t)}><span>Point {i + 1}</span><small>{p.t.toFixed(2)}s</small></Button>)}</div>
+      <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: undefined, ...(pts[0] ? { x: pts[0].x, y: pts[0].y } : {}) }, true)}><Trash2 /> Remove tracking</Button>
+    </>}
+  </div>;
+}
 function TextSection({ title, value, children }: { title: string; value?: string; children: React.ReactNode }) {
   return <details className="text-section"><summary>{title}<small>{value}</small><ChevronRight /></summary><div className="text-section-body">{children}</div></details>;
 }
