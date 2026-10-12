@@ -71,7 +71,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   const patchLayer = useCallback((id: string, patch: Partial<Layer>, record = false) => apply(p => ({ ...p, layers: p.layers.map(l => {
     if (l.id !== id) return l;
     // When a layer is tracked, dragging it edits the track point at the playhead instead of its base position.
-    if (l.track?.length && ('x' in patch || 'y' in patch) && !('track' in patch)) { const cur = trackPos(l, clock.get()); return { ...l, ...patch, track: setTrackPoint(l.track, clock.get() - l.start, patch.x ?? cur.x, patch.y ?? cur.y) } as Layer; }
+    if (l.type !== 'audio' && l.track?.length && ('x' in patch || 'y' in patch) && !('track' in patch)) { const cur = trackPos(l, clock.get()); return { ...l, ...patch, track: setTrackPoint(l.track, clock.get() - l.start, patch.x ?? cur.x, patch.y ?? cur.y) } as Layer; }
     return { ...l, ...patch } as Layer;
   }) }), record), [apply, clock]);
 
