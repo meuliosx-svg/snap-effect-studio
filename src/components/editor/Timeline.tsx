@@ -98,7 +98,13 @@ export default function Timeline({ project, clock, playing, pps, selection, onSe
       const maxLen = l.type === 'audio' || (l.type === 'media' && l.kind === 'video') ? (project.media[l.mediaId]?.duration ?? 600) : 600;
       drag(e, dx => {
         const d = dx / pps;
-        if (mode === 'move') onLayerChange(l.id, { start: Math.max(0, s0 + d) });
+        if (mode === 'move') {
+          // Magnetic snapping to the playhead, clip edges and other layers' edges.
+          let s = Math.max(0, s0 + d); const tol = 8 / pps;
+          const edges = [0, clock.get(), ...placeClips(project.clips).flatMap(c => [c.start, c.end]), ...project.layers.filter(o => o.id !== l.id).flatMap(o => [o.start, o.start + o.duration])];
+          for (const e of edges) { if (Math.abs(s - e) < tol) { s = e; break; } if (Math.abs(s + d0 - e) < tol) { s = e - d0; break; } }
+          onLayerChange(l.id, { start: Math.max(0, s) });
+        }
         else if (mode === 'r') onLayerChange(l.id, { duration: clamp(d0 + d, 0.2, maxLen - in0) });
         else { const nd = clamp(d, -Math.min(s0, in0 > 0 || maxLen < 600 ? in0 : s0), d0 - 0.2); const patch: Partial<Layer> = { start: s0 + nd, duration: d0 - nd }; if (l.type === 'audio' || l.type === 'media') (patch as { in: number }).in = in0 + nd; onLayerChange(l.id, patch); }
       }, () => { if (mode === 'move') onBeginGesture(); else onBeginGesture(); });

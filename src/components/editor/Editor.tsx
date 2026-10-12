@@ -4,6 +4,7 @@ import { Crosshair, Eraser, ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Min
 import Preview, { unlockMedia } from './Preview';
 import Timeline from './Timeline';
 import { createClock, type Clock } from './clock';
+import AssetLibrary, { type LibrarySample } from './AssetLibrary';
 const ClockCtx = createContext<Clock | null>(null);
 import { importFile } from './media';
 import type { BlendMode } from './model';
@@ -15,7 +16,7 @@ import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  trackPos, setTrackPoint, ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
+  CC_PRESETS, trackPos, setTrackPoint, ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
   type Adjust, type AnimLoop, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
@@ -104,9 +105,9 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     setBusy(null); if (assets.length) { addAssets(assets, mode); flash(`Added ${assets.length} item${assets.length > 1 ? 's' : ''}`); }
   };
 
-  const addSample = async (s: { url: string; name: string }) => {
+  const addSample = async (s: { url: string; name: string; kind?: 'video' | 'image'; blend?: BlendMode }) => {
     setBusy('Adding overlay…');
-    try { const blob = await (await fetch(s.url)).blob(); const a = await importFile(new File([blob], s.name + '.mp4', { type: 'video/mp4' })); addAssets([a], 'overlay', false, 'screen'); flash(`Added ${s.name}`); }
+    try { const blob = await (await fetch(s.url)).blob(); const img = s.kind === 'image'; const a = await importFile(new File([blob], s.name + (img ? '.jpg' : '.mp4'), { type: img ? (blob.type || 'image/jpeg') : 'video/mp4' })); addAssets([a], 'overlay', false, s.blend ?? 'screen'); flash(`Added ${s.name}`); }
     catch { flash("Couldn't load that overlay"); } finally { setBusy(null); }
   };
   // ---------- record voice ----------
@@ -203,11 +204,11 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
       toolBtn('Move left', ChevronLeft, () => moveClip(-1)), toolBtn('Move right', ChevronRight, () => moveClip(1))];
     if (!selLayer) return [];
     const rest = [toolBtn('Split', Scissors, splitSelected), toolBtn('Duplicate', Copy, duplicateSelected)];
-    if (selLayer.type === 'text') return [...common, toolBtn('Edit', Pencil, () => setSheet('textEdit')), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Track', Crosshair, () => setSheet('track')), ...rest];
-    if (selLayer.type === 'sticker') return [...common, toolBtn('Sticker', Smile, () => setSheet('sticker')), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Track', Crosshair, () => setSheet('track')), ...rest];
+    if (selLayer.type === 'text') return [...common, toolBtn('Edit', Pencil, () => setSheet('textEdit')), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Keyframes', Crosshair, () => setSheet('track')), ...rest];
+    if (selLayer.type === 'sticker') return [...common, toolBtn('Sticker', Smile, () => setSheet('sticker')), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Keyframes', Crosshair, () => setSheet('track')), ...rest];
     if (selLayer.type === 'effect') return [...common, toolBtn('Effect', Sparkles, () => setSheet('effect')), ...rest];
     if (selLayer.type === 'audio') return [...common, toolBtn('Volume', Volume2, () => setSheet('volume')), ...rest];
-    return [...common, toolBtn('Filters', Palette, () => setSheet('filter')), toolBtn('Adjust', SlidersHorizontal, () => setSheet('adjust')), ...(selLayer.kind === 'video' ? [toolBtn('Volume', Volume2, () => setSheet('volume'))] : []), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Track', Crosshair, () => setSheet('track')), toolBtn('Blend & opacity', Layers, () => setSheet('transform')), ...rest];
+    return [...common, toolBtn('Filters', Palette, () => setSheet('filter')), toolBtn('Adjust', SlidersHorizontal, () => setSheet('adjust')), ...(selLayer.kind === 'video' ? [toolBtn('Volume', Volume2, () => setSheet('volume'))] : []), toolBtn('Animate', Wand2, () => setSheet('anim')), toolBtn('Keyframes', Crosshair, () => setSheet('track')), toolBtn('Splice', Layers, () => setSheet('transform')), ...rest];
   };
 
   return <div className={`ed ${full ? 'is-full' : ''}`}>
@@ -288,13 +289,13 @@ function TimeLabel({ clock, duration }: { clock: ReturnType<typeof createClock>;
   return <div className="time"><b>{formatClock(t).slice(3, 10)}</b> / {formatClock(duration).slice(3, 10)}</div>;
 }
 
-const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', track: 'Motion tracking', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', library: 'Library', audio: 'Audio' };
+const SHEET_TITLES: Record<Exclude<Sheet, null>, string> = { text: 'Add text', textEdit: 'Edit text', sticker: 'Stickers', effect: 'Effects', filter: 'Filters', adjust: 'Color correction', speed: 'Speed', volume: 'Volume', transform: 'Transform', anim: 'Animation', track: 'Keyframes & tracking', transition: 'Transition', canvas: 'Canvas', export: 'Export', layer: 'Add layer', library: 'Library', audio: 'Audio' };
 
 type BodyProps = {
   sheet: Exclude<Sheet, null>; project: Project; selClip?: Clip | undefined; selLayer?: Layer | undefined; selTrans?: Clip | undefined;
   lookTarget: { kind: 'clip'; c: Clip } | { kind: 'layer'; l: Extract<Layer, { type: 'media' }> } | null;
   patchClip: (id: string, p: Partial<Clip>, record?: boolean) => void; patchLayer: (id: string, p: Partial<Layer>, record?: boolean) => void; beginGesture: () => void;
-  apply: (fn: (p: Project) => Project, record?: boolean) => void; addText: (p: Partial<TextLayer>) => void; addSticker: (e: string) => void; addSample: (s: { url: string; name: string }) => void; addEffect: (e: EffectType) => void;
+  apply: (fn: (p: Project) => Project, record?: boolean) => void; addText: (p: Partial<TextLayer>) => void; addSticker: (e: string) => void; addSample: (s: LibrarySample) => void; addEffect: (e: EffectType) => void;
   pickFiles: (m: 'main' | 'overlay' | 'audio') => void; startRec: () => void; clockTime: () => number; flash: (m: string) => void; setBusy: (m: string | null) => void;
 };
 
@@ -307,9 +308,7 @@ const Chips = <T extends string>({ items, value, onPick }: { items: { id: T; nam
 
 function SheetBody(b: BodyProps) {
   const { sheet, project, selClip, selLayer, selTrans, lookTarget, patchClip, patchLayer, beginGesture, apply } = b;
-  if (sheet === 'library') return <><p className="lbl">Video overlays · added with Screen blend</p><div className="grid-tiles">
-    {SAMPLE_OVERLAYS.map(s => <Button variant="ghost" key={s.url} className="tile" onClick={() => b.addSample(s)}><video src={s.url} muted loop autoPlay playsInline style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8 }} /><span>{s.name}</span></Button>)}
-  </div></>;
+  if (sheet === 'library') return <><p className="lbl">Tap to add over your video. Change the look in Splice.</p><AssetLibrary onAdd={b.addSample} /></>;
   if (sheet === 'layer') return <div className="grid-tiles">
     <Button variant="ghost" className="tile" onClick={() => b.pickFiles('overlay')}><ImagePlus /><span>Overlay photo / video</span></Button>
     <Button variant="ghost" className="tile" onClick={() => b.addText({})}><Type /><span>Text</span></Button>
@@ -325,6 +324,7 @@ function SheetBody(b: BodyProps) {
     <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></Button>)}</div></div>;
   if (sheet === 'sticker') return <div className="stickers">{STICKERS.map(s => <Button variant="ghost" key={s} onClick={() => b.addSticker(s)}>{s}</Button>)}</div>;
   if (sheet === 'effect') { const thumb = project.clips[0] ? project.media[project.clips[0].mediaId]?.thumbs[0] : undefined; return <>
+    <p className="lbl">Haze & flare overlays</p><AssetLibrary only="Haze & flare" onAdd={b.addSample} />
     {selLayer?.type === 'effect' && <Slider label="Intensity" value={selLayer.intensity} min={5} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { intensity: v })} />}
     {EFFECT_GROUPS.map(g => <div key={g}><p className="lbl">{g}</p><div className="fx-grid">{EFFECTS.filter(e => e.group === g).map(e => <button key={e.id} className={`fx-tile fx-${e.id} ${selLayer?.type === 'effect' && selLayer.effect === e.id ? 'on' : ''}`} onClick={() => b.addEffect(e.id)}>
       <span className="fx-thumb" style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: e.css || undefined }} /><small>{e.name}</small></button>)}</div></div>)}
@@ -337,7 +337,9 @@ function SheetBody(b: BodyProps) {
     if (sheet === 'filter') return <div className="filters">{FILTERS.map(f => <Button variant="ghost" key={f.id} className={`flt ${f.id === filter ? 'on' : ''}`} onClick={() => set({ filter: f.id }, true)}>
       <span style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: f.css || undefined }} /><small>{f.name}</small></Button>)}</div>;
     const keys: [keyof Adjust, string, number, number][] = [['brightness', 'Brightness', -100, 100], ['contrast', 'Contrast', -100, 100], ['saturation', 'Saturation', -100, 100], ['temperature', 'Temperature', -100, 100], ['hue', 'Hue', -180, 180], ['vignette', 'Vignette', 0, 100]];
-    return <>{keys.map(([k, label, min, max]) => <Slider key={k} label={label} value={adj[k]} min={min} max={max} onStart={beginGesture} onChange={v => set({ adjust: { ...adj, [k]: v } })} />)}
+    return <><p className="lbl">CC presets</p><div className="chips">{CC_PRESETS.map(c => <Button variant="ghost" key={c.name} className="chip" onClick={() => set({ adjust: { ...c.adjust } }, true)}>{c.name}</Button>)}</div>
+      <p className="lbl">CC overlays</p><AssetLibrary only="CC overlays" onAdd={b.addSample} />
+      <p className="lbl">Manual</p>{keys.map(([k, label, min, max]) => <Slider key={k} label={label} value={adj[k]} min={min} max={max} onStart={beginGesture} onChange={v => set({ adjust: { ...adj, [k]: v } })} />)}
       <Button variant="ghost" className="ghost" onClick={() => set({ adjust: neutralAdjust() }, true)}>Reset color</Button></>;
   }
   if (sheet === 'speed' && selClip) return <>
@@ -372,7 +374,7 @@ function SheetBody(b: BodyProps) {
     </>;
     if (selLayer && selLayer.type !== 'audio') return <>
       <Slider label="Opacity" value={Math.round(selLayer.opacity * 100)} min={0} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { opacity: v / 100 })} />
-      {selLayer.type === 'media' && <><p className="lbl">Blend</p><Chips<BlendMode> items={BLEND_MODES} value={selLayer.blend ?? 'normal'} onPick={v => patchLayer(selLayer.id, { blend: v }, true)} /></>}
+      {selLayer.type === 'media' && <><p className="lbl">Splice</p><Chips<BlendMode> items={BLEND_MODES} value={selLayer.blend ?? 'normal'} onPick={v => patchLayer(selLayer.id, { blend: v }, true)} /></>}
  {selLayer.type === 'media' && selLayer.kind === 'image' && <RemoveBgButton asset={project.media[selLayer.mediaId]} onDone={a => apply(p => ({ ...p, media: { ...p.media, [a.id]: a }, layers: p.layers.map(l => l.id === selLayer.id ? { ...l, mediaId: a.id } as Layer : l) }))} flash={b.flash} />}
       {selLayer.type === 'media' && <Slider label="Size" value={selLayer.width} min={5} max={300} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { width: v })} />}
       <Slider label="Rotation" value={selLayer.rotation} min={-180} max={180} unit="°" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { rotation: v })} />
@@ -473,13 +475,20 @@ function RemoveBgButton({ asset, onDone, flash }: { asset: MediaAsset | undefine
 
 function TrackPanel({ layer, patchLayer }: { layer: Exclude<Layer, { type: 'audio' } | { type: 'effect' }>; patchLayer: BodyProps['patchLayer'] }) {
   const clock = useContext(ClockCtx); const pts = layer.track ?? [];
-  const pin = () => { const t = clock ? clock.get() : layer.start; const p = trackPos(layer, t); patchLayer(layer.id, { track: setTrackPoint(layer.track, t - layer.start, p.x, p.y) }, true); };
+  const [now, setNow] = useState(() => clock?.get() ?? 0);
+  useEffect(() => clock?.subscribe(() => setNow(clock.get())), [clock]);
+  const lt = now - layer.start; const here = pts.find(p => Math.abs(p.t - lt) <= 0.04); const cur = trackPos(layer, now);
+  const put = (extra: Partial<TrackPoint> = {}, record = true) => patchLayer(layer.id, { track: setTrackPoint(layer.track, lt, cur.x, cur.y, { s: cur.s, r: cur.r, o: cur.o, ...extra }) }, record);
   return <div className="animation-menu">
-    <p className="lbl">Pin this layer to something moving: move the playhead, drag the layer onto the object, repeat. It glides smoothly between points in preview and export.</p>
-    <Button onClick={pin}><Crosshair /> {pts.length ? 'Add point at playhead' : 'Start tracking here'}</Button>
+    <p className="lbl">Move the playhead, then drag the layer or change the sliders. Each change saves a keyframe; the layer glides between them in preview and export.</p>
+    <Button onClick={() => put()}><Crosshair /> {here ? 'Keyframe saved here' : pts.length ? 'Add keyframe at playhead' : 'Start keyframes here'}</Button>
     {pts.length > 0 && <>
-      <div className="animation-list">{pts.map((p, i) => <Button variant="ghost" key={i} className="animation-row" onClick={() => clock?.set(layer.start + p.t)}><span>Point {i + 1}</span><small>{p.t.toFixed(2)}s</small></Button>)}</div>
-      <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: undefined, ...(pts[0] ? { x: pts[0].x, y: pts[0].y } : {}) }, true)}><Trash2 /> Remove tracking</Button>
+      <Slider label="Scale" value={Math.round(cur.s * 100)} min={10} max={400} unit="%" onChange={v => put({ s: v / 100 }, false)} />
+      <Slider label="Rotation" value={Math.round(cur.r)} min={-360} max={360} unit="°" onChange={v => put({ r: v }, false)} />
+      <Slider label="Opacity" value={Math.round(cur.o * 100)} min={0} max={100} unit="%" onChange={v => put({ o: v / 100 }, false)} />
+      <div className="animation-list">{pts.map((p, i) => <Button variant="ghost" key={i} aria-pressed={p === here} className={`animation-row ${p === here ? 'on' : ''}`} onClick={() => clock?.set(layer.start + p.t)}><span>Keyframe {i + 1}</span><small>{p.t.toFixed(2)}s</small></Button>)}</div>
+      {here && <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: pts.filter(p => p !== here) }, true)}><Trash2 /> Delete this keyframe</Button>}
+      <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: undefined, ...(pts[0] ? { x: pts[0].x, y: pts[0].y } : {}) }, true)}><Trash2 /> Remove all keyframes</Button>
     </>}
   </div>;
 }
