@@ -21,7 +21,8 @@ export type Clip = {
 
 export type BlendMode = 'normal' | 'screen' | 'lighten' | 'multiply' | 'overlay' | 'soft-light' | 'hard-light' | 'color-dodge' | 'color-burn' | 'darken' | 'difference' | 'exclusion' | 'hue' | 'color' | 'luminosity';
 export const BLEND_MODES: { id: BlendMode; name: string }[] = [{ id: 'normal', name: 'Normal' }, { id: 'screen', name: 'Screen' }, { id: 'lighten', name: 'Lighten' }, { id: 'color-dodge', name: 'Dodge' }, { id: 'color-burn', name: 'Burn' }, { id: 'overlay', name: 'Overlay' }, { id: 'soft-light', name: 'Soft light' }, { id: 'hard-light', name: 'Hard light' }, { id: 'multiply', name: 'Multiply' }, { id: 'darken', name: 'Darken' }, { id: 'difference', name: 'Difference' }, { id: 'exclusion', name: 'Exclusion' }, { id: 'hue', name: 'Hue' }, { id: 'color', name: 'Color' }, { id: 'luminosity', name: 'Luminosity' }];
-type LayerBase = { blend?: BlendMode; id: string; start: number; duration: number; x: number; y: number; rotation: number; opacity: number; animIn: AnimIn; animOut: AnimOut; animLoop?: AnimLoop; animDuration?: number; animAmount?: number; animLoopSpeed?: number; animEasing?: 'linear' | 'smooth' | 'bounce' };
+type LayerBase = { blend?: BlendMode; id: string; start: number; duration: number; x: number; y: number; rotation: number; opacity: number; animIn: AnimIn; animOut: AnimOut; animLoop?: AnimLoop; animDuration?: number; animAmount?: number; animLoopSpeed?: number; animEasing?: 'linear' | 'smooth' | 'bounce'; track?: TrackPoint[] | undefined };
+export type TrackPoint = { t: number; x: number; y: number };
 export type TextStyle = 'plain' | 'glow' | 'neon' | 'outline' | 'neon-outline' | 'shadow' | 'gradient' | 'box' | 'stroke' | 'extrude';
 export type TextLayer = LayerBase & { type: 'text'; text: string; font: string; size: number; color: string; accent: string; style: TextStyle; bold: boolean; align: 'left' | 'center' | 'right'; italic?: boolean; lineHeight?: number; glow?: number; outline?: number; spacing?: number; caps?: boolean };
 export type MediaLayer = LayerBase & { type: 'media'; mediaId: string; kind: 'video' | 'image'; in: number; width: number; volume: number; muted: boolean; filter: string; adjust: Adjust };
@@ -206,6 +207,17 @@ export const LOOP_ANIMATIONS: { id: AnimLoop; name: string }[] = [
   { id: 'none', name: 'None' }, { id: 'pulse', name: 'Pulse' }, { id: 'float', name: 'Float' },
   { id: 'shake', name: 'Shake' }, { id: 'swing', name: 'Swing' }, { id: 'heartbeat', name: 'Heartbeat' },
 ];
+// Motion tracking: keyframed positions (t relative to layer start), linearly interpolated with smoothing.
+export function trackPos(l: { x: number; y: number; start: number; track?: TrackPoint[] | undefined }, t: number) {
+  const pts = l.track; if (!pts || pts.length === 0) return { x: l.x, y: l.y };
+  const lt = t - l.start; if (lt <= pts[0]!.t) return { x: pts[0]!.x, y: pts[0]!.y };
+  const last = pts[pts.length - 1]!; if (lt >= last.t) return { x: last.x, y: last.y };
+  for (let i = 1; i < pts.length; i++) { const b = pts[i]!; if (lt <= b.t) { const a = pts[i - 1]!; const q = (lt - a.t) / Math.max(0.0001, b.t - a.t); const s = q * q * (3 - 2 * q); return { x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s }; } }
+  return { x: last.x, y: last.y };
+}
+export function setTrackPoint(track: TrackPoint[] | undefined, t: number, x: number, y: number) {
+  const pts = (track ?? []).filter(p => Math.abs(p.t - t) > 0.04); pts.push({ t: Math.max(0, t), x, y }); return pts.sort((a, b) => a.t - b.t);
+}
 export function layerAnim(l: LayerBase, t: number, textLength = 0) {
   const local = Math.max(0, t - l.start); const left = l.start + l.duration - t;
   const d = Math.max(0.01, Math.min(l.animDuration ?? 0.5, l.duration / 2));
@@ -233,6 +245,7 @@ export function layerAnim(l: LayerBase, t: number, textLength = 0) {
   if (l.animLoop === 'shake') { dx += Math.sin(phase * 9) * 0.7 * amount; dy += Math.cos(phase * 11) * 0.4 * amount; }
   if (l.animLoop === 'swing') rotation += wave * 8 * amount;
   if (l.animLoop === 'heartbeat') scale *= 1 + Math.pow(Math.max(0, wave), 8) * 0.12 * amount;
+  if (l.track?.length) { const p = trackPos(l, t); dx += p.x - l.x; dy += p.y - l.y; }
   return { opacity: opacity * l.opacity, scale, dx, dy, rotation, chars };
 }
 const easeOut = (p: number) => 1 - Math.pow(1 - clamp(p, 0, 1), 3);

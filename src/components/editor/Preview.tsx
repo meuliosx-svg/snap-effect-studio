@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
 import { RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { aspectValue, clamp, clipAt, clipBox, effectState, effectiveTransition, fontWeight, isActive, layerAnim, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type Layer, type MediaAsset, type Project, type Selection, type VisualLayer } from './model';
+import { aspectValue, clamp, clipAt, clipBox, effectState, effectiveTransition, fontWeight, isActive, layerAnim, trackPos, lookCss, motionTransform, placeClips, temperatureTint, transitionFx, type Clip, type FrameFx, type Layer, type MediaAsset, type Project, type Selection, type VisualLayer } from './model';
 import { useClock, type Clock } from './clock';
 import { mediaUrl } from './storage';
 
@@ -119,7 +119,7 @@ export default function Preview({ project, clock, playing, selection, onSelect, 
   const startDrag = (e: RPointerEvent, l: VisualLayer) => {
     e.stopPropagation(); onSelect({ kind: 'layer', id: l.id });
     const stage = stageRef.current?.getBoundingClientRect(); if (!stage) return;
-    const sx = e.clientX; const sy = e.clientY; const x0 = l.x; const y0 = l.y; let moved = false;
+    const sx = e.clientX; const sy = e.clientY; const tp = trackPos(l, t); const x0 = tp.x; const y0 = tp.y; let moved = false;
     const move = (ev: PointerEvent) => {
       const dx = ((ev.clientX - sx) / stage.width) * 100; const dy = ((ev.clientY - sy) / stage.height) * 100;
       if (!moved && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 3) return;
