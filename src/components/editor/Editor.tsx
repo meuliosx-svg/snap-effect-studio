@@ -67,7 +67,12 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   const scrub = useCallback((t: number) => { setPlaying(false); clock.set(t); }, [clock]);
 
   const patchClip = useCallback((id: string, patch: Partial<Clip>, record = false) => apply(p => ({ ...p, clips: p.clips.map(c => c.id === id ? { ...c, ...patch } : c) }), record), [apply]);
-  const patchLayer = useCallback((id: string, patch: Partial<Layer>, record = false) => apply(p => ({ ...p, layers: p.layers.map(l => l.id === id ? { ...l, ...patch } as Layer : l) }), record), [apply]);
+  const patchLayer = useCallback((id: string, patch: Partial<Layer>, record = false) => apply(p => ({ ...p, layers: p.layers.map(l => {
+    if (l.id !== id) return l;
+    // When a layer is tracked, dragging it edits the track point at the playhead instead of its base position.
+    if (l.track?.length && ('x' in patch || 'y' in patch) && !('track' in patch)) { const cur = trackPos(l, clock.get()); return { ...l, ...patch, track: setTrackPoint(l.track, clock.get() - l.start, patch.x ?? cur.x, patch.y ?? cur.y) } as Layer; }
+    return { ...l, ...patch } as Layer;
+  }) }), record), [apply, clock]);
 
   const selClip = selection?.kind === 'clip' ? project.clips.find(c => c.id === selection.id) : undefined;
   const selLayer = selection?.kind === 'layer' ? project.layers.find(l => l.id === selection.id) : undefined;
