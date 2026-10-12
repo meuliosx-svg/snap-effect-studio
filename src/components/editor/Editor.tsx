@@ -1,9 +1,10 @@
 import { removeBackground } from './removeBg';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, createContext, useContext, type CSSProperties } from 'react';
 import { Crosshair, Eraser, ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Minimize2, Type, Smile, Sparkles, Palette, SlidersHorizontal, Crop, Trash2, Scissors, Copy, Gauge, Volume2, Wand2, Film, Layers, Music2, Mic, Square, ChevronLeft, ChevronRight, RotateCw, FlipHorizontal, FlipVertical, Pencil, Clapperboard, ImagePlus, Download, X, ZoomIn, ZoomOut, Check, Loader2, Camera, ArrowLeftRight } from 'lucide-react';
 import Preview, { unlockMedia } from './Preview';
 import Timeline from './Timeline';
-import { createClock } from './clock';
+import { createClock, type Clock } from './clock';
+const ClockCtx = createContext<Clock | null>(null);
 import { importFile } from './media';
 import type { BlendMode } from './model';
 import { BLEND_MODES } from './model';
@@ -14,7 +15,7 @@ import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
+  trackPos, setTrackPoint, ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
   type Adjust, type AnimLoop, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
@@ -270,9 +271,9 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     {sheet && <div className="sheet" role="dialog">
       <div className="sheet-head"><b>{SHEET_TITLES[sheet]}</b><Button variant="ghost" className="ic" aria-label="Close" onClick={() => setSheet(null)}><X /></Button></div>
       <div className="sheet-body">
-        <SheetBody sheet={sheet} project={project} selClip={selClip} selLayer={selLayer} selTrans={selTrans} lookTarget={lookTarget()}
+        <ClockCtx.Provider value={clock}><SheetBody sheet={sheet} project={project} selClip={selClip} selLayer={selLayer} selTrans={selTrans} lookTarget={lookTarget()}
           patchClip={patchClip} patchLayer={patchLayer} beginGesture={beginGesture} apply={apply} addText={addText} addSticker={addSticker} addSample={addSample} addEffect={addEffect}
-          pickFiles={m => { setSheet(null); pickFiles(m); }} startRec={() => { setSheet(null); void startRec(); }} clockTime={t} flash={flash} setBusy={setBusy} />
+          pickFiles={m => { setSheet(null); pickFiles(m); }} startRec={() => { setSheet(null); void startRec(); }} clockTime={t} flash={flash} setBusy={setBusy} /></ClockCtx.Provider>
       </div>
     </div>}
     {rec && <div className="rec-badge"><span /> Recording… tap Stop</div>}
