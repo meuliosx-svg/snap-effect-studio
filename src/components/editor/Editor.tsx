@@ -16,7 +16,7 @@ import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  CC_PRESETS, trackPos, setTrackPoint, ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
+  type TrackPoint, CC_PRESETS, trackPos, setTrackPoint, ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
   type Adjust, type AnimLoop, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
@@ -483,9 +483,9 @@ function TrackPanel({ layer, patchLayer }: { layer: Exclude<Layer, { type: 'audi
     <p className="lbl">Move the playhead, then drag the layer or change the sliders. Each change saves a keyframe; the layer glides between them in preview and export.</p>
     <Button onClick={() => put()}><Crosshair /> {here ? 'Keyframe saved here' : pts.length ? 'Add keyframe at playhead' : 'Start keyframes here'}</Button>
     {pts.length > 0 && <>
-      <Slider label="Scale" value={Math.round(cur.s * 100)} min={10} max={400} unit="%" onChange={v => put({ s: v / 100 }, false)} />
-      <Slider label="Rotation" value={Math.round(cur.r)} min={-360} max={360} unit="°" onChange={v => put({ r: v }, false)} />
-      <Slider label="Opacity" value={Math.round(cur.o * 100)} min={0} max={100} unit="%" onChange={v => put({ o: v / 100 }, false)} />
+      <Slider label="Scale" value={Math.round(cur.s * 100)} min={10} max={400} unit="%" onStart={() => undefined} onChange={v => put({ s: v / 100 }, false)} />
+      <Slider label="Rotation" value={Math.round(cur.r)} min={-360} max={360} unit="°" onStart={() => undefined} onChange={v => put({ r: v }, false)} />
+      <Slider label="Opacity" value={Math.round(cur.o * 100)} min={0} max={100} unit="%" onStart={() => undefined} onChange={v => put({ o: v / 100 }, false)} />
       <div className="animation-list">{pts.map((p, i) => <Button variant="ghost" key={i} aria-pressed={p === here} className={`animation-row ${p === here ? 'on' : ''}`} onClick={() => clock?.set(layer.start + p.t)}><span>Keyframe {i + 1}</span><small>{p.t.toFixed(2)}s</small></Button>)}</div>
       {here && <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: pts.filter(p => p !== here) }, true)}><Trash2 /> Delete this keyframe</Button>}
       <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: undefined, ...(pts[0] ? { x: pts[0].x, y: pts[0].y } : {}) }, true)}><Trash2 /> Remove all keyframes</Button>

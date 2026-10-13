@@ -1,4 +1,5 @@
 # FRAME editor
+- [ ] Current request: keyframes, Library/Splice wiring, CC presets, timeline snapping, auto captions; searchable categorized effects + text template menus (reference screenshots).
 - [ ] Current request: Overlay Splice with Burn/Dodge and 1–100 opacity; categorized overlay, CC and haze/flare presets beside each tool; verify saving and rendering.
 - [ ] Current request: visible scrollable side tools, compact ordered timeline, cinematic text options and local font imports.
 - [ ] Current request: accessible slow-motion/speed and ratio controls; verify project saving and browser editing flow.
