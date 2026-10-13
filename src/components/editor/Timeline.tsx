@@ -47,7 +47,7 @@ export default function Timeline({ project, clock, playing, pps, selection, onSe
   useEffect(() => {
     const el = scroller.current; if (!el) return;
     const wheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
+      if (!e.ctrlKey && !e.metaKey) { if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey) { e.preventDefault(); el.scrollLeft += e.deltaY; } return; }
       e.preventDefault();
       const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
       zoomRef.current(Math.exp(-dy * 0.0015));
