@@ -127,7 +127,7 @@ export function adjustCss(a: Adjust) {
 export const lookCss = (filter: string, a: Adjust, extra = '') => [filterCss(filter), adjustCss(a), extra].filter(Boolean).join(' ').trim() || 'none';
 export const temperatureTint = (t: number) => t > 0 ? `rgba(255,140,30,${t / 250})` : t < 0 ? `rgba(40,130,255,${-t / 250})` : '';
 
-export type EffectGroup = 'Body & Aura' | 'Impact & Shake' | 'Cinematic' | 'Motion' | 'Color' | 'Glitch & Light' | 'Haze & flare';
+export type EffectGroup = 'Body & Aura' | 'Impact & Shake' | 'Cinematic' | 'Motion' | 'Color' | 'Glitch & Light';
 export const EFFECTS: { id: EffectType; name: string; group: EffectGroup; css: string }[] = [
   { id: 'letterbox', name: 'Cinema Bars', group: 'Cinematic', css: '' }, { id: 'dreamy', name: 'Dreamy', group: 'Cinematic', css: 'blur(1.5px) brightness(1.15) saturate(1.2)' },
   { id: 'punch', name: 'Punch', group: 'Cinematic', css: 'contrast(1.4) saturate(1.4)' }, { id: 'vignette', name: 'Vignette', group: 'Cinematic', css: 'brightness(.85)' }, { id: 'darken', name: 'Darken', group: 'Cinematic', css: 'brightness(.5)' },
@@ -139,19 +139,19 @@ export const EFFECTS: { id: EffectType; name: string; group: EffectGroup; css: s
   { id: 'zoomblur', name: 'Zoom Blur In', group: 'Motion', css: 'blur(2px)' }, { id: 'heartbeat', name: 'Heartbeat', group: 'Motion', css: '' }, { id: 'bounce', name: 'Bounce', group: 'Motion', css: '' },
   { id: 'swing', name: 'Swing', group: 'Motion', css: '' }, { id: 'dolly', name: 'Dolly Zoom', group: 'Motion', css: 'blur(.6px)' },
   { id: 'film', name: 'Film Grain', group: 'Cinematic', css: 'sepia(.25) contrast(1.1)' }, { id: 'noir', name: 'Noir', group: 'Cinematic', css: 'grayscale(1) contrast(1.6)' },
-  { id: 'fadein', name: 'Fade In', group: 'Cinematic', css: 'brightness(.5)' }, { id: 'fadeout', name: 'Fade Out', group: 'Cinematic', css: 'brightness(.4)' }, { id: 'hazy', name: 'Hazy', group: 'Haze & flare', css: 'contrast(.7) brightness(1.15) blur(.8px)' },
+  { id: 'fadein', name: 'Fade In', group: 'Cinematic', css: 'brightness(.5)' }, { id: 'fadeout', name: 'Fade Out', group: 'Cinematic', css: 'brightness(.4)' }, { id: 'hazy', name: 'Hazy', group: 'Glitch & Light', css: 'contrast(.7) brightness(1.15) blur(.8px)' },
   { id: 'golden', name: 'Golden Hour', group: 'Color', css: 'sepia(.4) saturate(1.5) hue-rotate(-15deg)' }, { id: 'cyber', name: 'Cyberpunk', group: 'Color', css: 'hue-rotate(200deg) saturate(1.8)' },
   { id: 'retro', name: 'Retro 70s', group: 'Color', css: 'sepia(.5) hue-rotate(-20deg) saturate(1.4)' }, { id: 'chrome', name: 'Chrome', group: 'Color', css: 'saturate(2.2) contrast(1.35)' },
-  { id: 'vhs', name: 'VHS', group: 'Glitch & Light', css: 'saturate(1.6) blur(.6px)' }, { id: 'bloom', name: 'Bloom', group: 'Haze & flare', css: 'brightness(1.25) saturate(1.2)' },
+  { id: 'vhs', name: 'VHS', group: 'Glitch & Light', css: 'saturate(1.6) blur(.6px)' }, { id: 'bloom', name: 'Bloom', group: 'Glitch & Light', css: 'brightness(1.25) saturate(1.2)' },
   { id: 'neonaura', name: 'Neon Aura', group: 'Body & Aura', css: 'saturate(1.8) hue-rotate(200deg) brightness(1.15)' }, { id: 'pinkhaze', name: 'Pink Aura', group: 'Body & Aura', css: 'saturate(1.5) hue-rotate(-40deg) brightness(1.15)' },
   { id: 'iceblue', name: 'Ice Glow', group: 'Body & Aura', css: 'saturate(1.3) hue-rotate(170deg) brightness(1.2) contrast(1.1)' }, { id: 'spotlight', name: 'Spotlight', group: 'Body & Aura', css: 'contrast(1.3) brightness(.85)' },
   { id: 'handheld', name: 'Handheld', group: 'Impact & Shake', css: '' }, { id: 'earthquake', name: 'Earthquake', group: 'Impact & Shake', css: 'blur(.6px)' },
   { id: 'velocity', name: 'Velocity Hit', group: 'Impact & Shake', css: 'contrast(1.3)' }, { id: 'tvoff', name: 'TV Off', group: 'Impact & Shake', css: 'brightness(.6)' },
   { id: 'chromatic', name: 'Chromatic Lens', group: 'Glitch & Light', css: 'saturate(1.6) hue-rotate(25deg)' }, { id: 'flicker', name: 'Light Flicker', group: 'Glitch & Light', css: 'brightness(1.4)' },
-  { id: 'slowzoom', name: 'Ken Burns', group: 'Cinematic', css: '' }, { id: 'sunburst', name: 'Sun Burst', group: 'Haze & flare', css: 'sepia(.3) brightness(1.3) saturate(1.3)' },
+  { id: 'slowzoom', name: 'Ken Burns', group: 'Cinematic', css: '' }, { id: 'sunburst', name: 'Sun Burst', group: 'Glitch & Light', css: 'sepia(.3) brightness(1.3) saturate(1.3)' },
   { id: 'overexpose', name: 'Overexpose', group: 'Glitch & Light', css: 'brightness(1.6) contrast(.8)' }, { id: 'blackflash', name: 'Black Flash', group: 'Glitch & Light', css: 'brightness(.3)' }, { id: 'strobe', name: 'Strobe', group: 'Glitch & Light', css: 'brightness(1.5) contrast(1.3)' },
 ];
-export const EFFECT_GROUPS: EffectGroup[] = ['Body & Aura', 'Impact & Shake', 'Cinematic', 'Motion', 'Color', 'Glitch & Light', 'Haze & flare'];
+export const EFFECT_GROUPS: EffectGroup[] = ['Body & Aura', 'Impact & Shake', 'Cinematic', 'Motion', 'Color', 'Glitch & Light'];
 export const effectName = (id: EffectType) => EFFECTS.find(e => e.id === id)?.name ?? id;
 // Returns CSS filter + transform (in % of frame / deg) + overlay for the active effect layers.
 export function effectState(layers: Layer[], t: number) {

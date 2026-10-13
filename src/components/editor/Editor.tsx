@@ -1,7 +1,7 @@
 import { removeBackground } from './removeBg';
 import { useCallback, useEffect, useMemo, useRef, useState, createContext, useContext, type CSSProperties } from 'react';
 import { Crosshair, Eraser, ArrowLeft, Undo2, Redo2, Play, Pause, Maximize2, Minimize2, Type, Smile, Sparkles, Palette, SlidersHorizontal, Crop, Trash2, Scissors, Copy, Gauge, Volume2, Wand2, Film, Layers, Music2, Mic, Square, ChevronLeft, ChevronRight, RotateCw, FlipHorizontal, FlipVertical, Pencil, Clapperboard, ImagePlus, Download, X, ZoomIn, ZoomOut, Check, Loader2, Camera, ArrowLeftRight } from 'lucide-react';
-import Preview, { unlockMedia } from './Preview';
+import Preview, { unlockMedia, stopAllMedia } from './Preview';
 import Timeline from './Timeline';
 import { createClock, type Clock } from './clock';
 import AssetLibrary, { type LibrarySample } from './AssetLibrary';
@@ -60,6 +60,8 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
     const tick = (now: number) => { const dt = (now - last) / 1000; last = now; const t = clock.get() + dt; const end = projectDuration(ref.current); if (t >= end) { clock.set(end); setPlaying(false); return; } clock.set(t); raf = requestAnimationFrame(tick); };
     raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
   }, [playing, clock]);
+  useEffect(() => { if (!playing) stopAllMedia(); }, [playing]);
+  useEffect(() => { const off = () => { if (document.hidden) setPlaying(false); }; document.addEventListener('visibilitychange', off); return () => { document.removeEventListener('visibilitychange', off); stopAllMedia(); }; }, []);
   const togglePlay = () => {
     if (playing) { setPlaying(false); return; }
     if (duration <= 0) { flash('Add a video or photo first'); return; }
@@ -132,6 +134,7 @@ export default function Editor({ initial, onExit }: { initial: Project; onExit: 
   // ---------- edit ops ----------
   const t = () => clock.get();
   const deleteSelected = () => {
+    setPlaying(false); stopAllMedia();
     if (selClip) apply(p => ({ ...p, clips: p.clips.filter(c => c.id !== selClip.id) }));
     else if (selLayer) apply(p => ({ ...p, layers: p.layers.filter(l => l.id !== selLayer.id) }));
     else if (selTrans) { patchClip(selTrans.id, { transition: { ...selTrans.transition, type: 'none' } }, true); }
@@ -320,13 +323,11 @@ function SheetBody(b: BodyProps) {
     <Button variant="ghost" className="tile" onClick={b.startRec}><Mic /><span>Record voiceover</span></Button>
     <Button variant="ghost" className="tile" onClick={() => b.pickFiles('audio')}><Clapperboard /><span>Extract audio from video</span></Button>
   </div>;
-  if (sheet === 'text') return <div className="text-template-list"><Button variant="ghost" className="text-add-row" onClick={() => b.addText({})}><Type /> Blank text<ChevronRight /></Button><div className="presets">{TEXT_PRESETS.map(p => <Button variant="ghost" key={p.name} className="preset" onClick={() => b.addText(p.patch)}>
-    <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></Button>)}</div></div>;
+  if (sheet === 'text') return <TextLibrary addText={b.addText} />;
   if (sheet === 'sticker') return <div className="stickers">{STICKERS.map(s => <Button variant="ghost" key={s} onClick={() => b.addSticker(s)}>{s}</Button>)}</div>;
   if (sheet === 'effect') { const thumb = project.clips[0] ? project.media[project.clips[0].mediaId]?.thumbs[0] : undefined; return <>
     {selLayer?.type === 'effect' && <Slider label="Intensity" value={selLayer.intensity} min={5} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { intensity: v })} />}
     <EffectBrowser thumb={thumb} activeId={selLayer?.type === 'effect' ? selLayer.effect : undefined} onPick={b.addEffect} />
-    <p className="lbl">Haze & flare overlays</p><AssetLibrary only="Haze & flare" onAdd={b.addSample} />
   </>; }
   if (sheet === 'filter' || sheet === 'adjust') {
     if (!lookTarget) return <p className="muted">Add a video or photo first.</p>;
@@ -472,6 +473,20 @@ function RemoveBgButton({ asset, onDone, flash }: { asset: MediaAsset | undefine
   }}><Eraser /> {busy ? 'Removing background…' : 'Remove background'}</Button>;
 }
 
+const textCat = (s?: string) => s === 'glow' || s === 'neon' || s === 'neon-outline' ? 'Glow & Neon' : s === 'box' || s === 'extrude' || s === 'stroke' || s === 'outline' ? 'Titles & 3D' : 'Vlog & Social';
+function TextLibrary({ addText }: { addText: (p: Partial<TextLayer>) => void }) {
+  const [q, setQ] = useState(''); const [cat, setCat] = useState('Trending');
+  const list = q.trim() ? TEXT_PRESETS.filter(p => (p.name + ' ' + (p.patch.text ?? '')).toLowerCase().includes(q.trim().toLowerCase())) : cat === 'Trending' ? TEXT_PRESETS.slice(0, 12) : TEXT_PRESETS.filter(p => textCat(p.patch.style) === cat);
+  return <div className="fx-browser">
+    <input className="fx-search" type="search" placeholder="Search text templates" value={q} onChange={e => setQ(e.target.value)} aria-label="Search text templates" />
+    {!q && <div className="fx-cats" role="tablist">{['Trending', 'Vlog & Social', 'Glow & Neon', 'Titles & 3D'].map(c => <button key={c} role="tab" aria-selected={cat === c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c === 'Trending' ? 'Trending 🔥' : c}</button>)}</div>}
+    <div className="txt-grid">
+      <button className="txt-card default" onClick={() => addText({})}>Default</button>
+      {list.map(p => <button key={p.name} className="txt-card" title={p.name} onClick={() => addText(p.patch)}>
+        <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span></button>)}
+    </div>
+  </div>;
+}
 const TRENDING: EffectType[] = ['neonaura', 'handheld', 'chromatic', 'letterbox', 'velocity', 'vhs', 'dreamy', 'earthquake', 'golden', 'flicker', 'zoomblur', 'noir'];
 function EffectBrowser({ thumb, activeId, onPick }: { thumb: string | undefined; activeId: EffectType | undefined; onPick: (e: EffectType) => void }) {
   const [q, setQ] = useState(''); const [cat, setCat] = useState<string>('Trending');

@@ -6,6 +6,7 @@ import { mediaUrl } from './storage';
 
 // Media elements currently allowed to play; unlocked synchronously on the Play tap (mobile autoplay rules).
 export const liveMedia = new Set<HTMLMediaElement>();
+export function stopAllMedia() { liveMedia.clear(); if (typeof document !== 'undefined') document.querySelectorAll('video, audio').forEach(el => { const m = el as HTMLMediaElement; if (!m.closest('.sample-tile')) m.pause(); }); }
 export function unlockMedia() { liveMedia.forEach(el => { void el.play().catch(() => undefined); }); }
 
 type SyncOpts = { sourceTime: number; playing: boolean; rate: number; volume: number; muted: boolean };
@@ -16,14 +17,14 @@ function useMediaSync(ref: React.RefObject<HTMLMediaElement | null>, o: SyncOpts
     if (o.playing) {
       liveMedia.add(el);
       if (Math.abs(el.currentTime - o.sourceTime) > 0.3) el.currentTime = o.sourceTime;
-      if (el.paused) void el.play().catch(() => undefined);
+      if (el.paused && el.isConnected) void el.play().catch(() => undefined);
     } else {
       liveMedia.delete(el);
       if (!el.paused) el.pause();
       if (Math.abs(el.currentTime - o.sourceTime) > 0.04 && el.readyState >= 1) el.currentTime = o.sourceTime;
     }
   });
-  useEffect(() => () => { const el = ref.current; if (el) { liveMedia.delete(el); el.pause(); } }, [ref]);
+  useEffect(() => { const el = ref.current; return () => { if (el) { liveMedia.delete(el); el.pause(); el.removeAttribute('src'); el.load(); } }; }, [ref]);
 }
 
 function Video({ src, className, style, ...sync }: SyncOpts & { src: string; className?: string; style?: CSSProperties }) {

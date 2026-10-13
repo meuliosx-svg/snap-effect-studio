@@ -285,3 +285,9 @@ svg { width: 18px; height: 18px; }
 .sample-tile { display: grid !important; gap: 4px; height: auto !important; padding: 0 !important; }
 .sample-tile video, .sample-tile img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: var(--muted); }
 .sample-tile span { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.txt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.txt-card { aspect-ratio: 1; border-radius: 14px; border: 1px solid var(--border); background: var(--muted); color: var(--foreground); display: grid; place-items: center; overflow: hidden; padding: 8px; font-size: 18px; container-type: size; }
+.txt-card .txt { font-size: 22px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.txt-card.default { border-style: dashed; font-weight: 600; font-size: 14px; }
+.txt-card:hover { border-color: var(--primary); }

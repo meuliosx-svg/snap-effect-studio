@@ -5,10 +5,9 @@ import type { BlendMode } from './model';
 export type LibrarySample = { url: string; name: string; kind: 'video' | 'image'; blend: BlendMode };
 type Pointer = { url: string; original_filename: string };
 const ripples = import.meta.glob('@/assets/overlays/*.asset.json', { eager: true, import: 'default' }) as Record<string, Pointer>;
-const haze = import.meta.glob('@/assets/haze/*.asset.json', { eager: true, import: 'default' }) as Record<string, Pointer>;
 const cc = import.meta.glob('@/assets/cc/*.asset.json', { eager: true, import: 'default' }) as Record<string, Pointer>;
 const samples = (files: Record<string, Pointer>, kind: LibrarySample['kind'], blend: BlendMode): LibrarySample[] => Object.values(files).map(a => ({ url: a.url, name: a.original_filename.replace(/\.(mp4|jpg|webp)$/, '').replace(/_Ripple_Overlay$/, ' ripple').replace(/_/g, ' '), kind, blend }));
-const sections = { 'Ripples': samples(ripples, 'video', 'screen'), 'Haze & flare': samples(haze, 'video', 'screen'), 'CC overlays': samples(cc, 'image', 'soft-light') };
+const sections = { 'Ripples': samples(ripples, 'video', 'screen'), 'CC overlays': samples(cc, 'image', 'soft-light') };
 type Section = keyof typeof sections;
 
 export default function AssetLibrary({ onAdd, only }: { onAdd: (sample: LibrarySample) => void; only?: Section }) {
