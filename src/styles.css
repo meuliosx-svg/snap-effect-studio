@@ -272,3 +272,16 @@ svg { width: 18px; height: 18px; }
 .animation-row { min-height: 40px; width: 100%; justify-content: space-between; font-weight: 400; border-radius: 4px; }
 .animation-row.on { background: var(--secondary); color: var(--primary); }
 .animation-row svg { width: 14px; height: 14px; }
+
+.fx-browser { display: grid; gap: 10px; }
+.fx-search { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--muted); color: var(--foreground); font: inherit; }
+.fx-cats { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.fx-cats button { flex: none; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted-foreground); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.fx-cats button.on { background: var(--foreground); color: var(--background); border-color: transparent; }
+.asset-library { display: grid; gap: 10px; margin-bottom: 8px; }
+.library-tabs { display: flex; gap: 6px; overflow-x: auto; }
+.library-tabs button.on { background: var(--foreground); color: var(--background); }
+.sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.sample-tile { display: grid !important; gap: 4px; height: auto !important; padding: 0 !important; }
+.sample-tile video, .sample-tile img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: var(--muted); }
+.sample-tile span { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

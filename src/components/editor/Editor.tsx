@@ -16,7 +16,7 @@ import { importFont } from './fonts';
 import { Button } from '@/components/ui/button';
 import { exportProject, exportSupport, captureFrame } from './export';
 import {
-  CC_PRESETS, trackPos, setTrackPoint, ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
+  type TrackPoint, CC_PRESETS, trackPos, setTrackPoint, ANIMATIONS, LOOP_ANIMATIONS, ASPECTS, EFFECTS, EFFECT_GROUPS, FILTERS, FONTS, STICKERS, SWATCHES, TEXT_PRESETS, TEXT_STYLES, TRANSITIONS, clamp, clipAt, formatClock, makeClip, makeText, neutralAdjust, packLanes, placeClips, projectDuration, uid,
   type Adjust, type AnimLoop, type AnimIn, type AnimOut, type Clip, type EffectType, type Layer, type MediaAsset, type Motion, type Project, type Selection, type TextLayer,
 } from './model';
 
@@ -324,10 +324,9 @@ function SheetBody(b: BodyProps) {
     <span className={`txt txt-${p.patch.style ?? 'plain'}`} style={{ fontFamily: `"${p.patch.font}"`, ['--c' as string]: p.patch.color, ['--a' as string]: p.patch.accent }}><span className="txt-live static">{p.patch.text}</span></span><small>{p.name}</small></Button>)}</div></div>;
   if (sheet === 'sticker') return <div className="stickers">{STICKERS.map(s => <Button variant="ghost" key={s} onClick={() => b.addSticker(s)}>{s}</Button>)}</div>;
   if (sheet === 'effect') { const thumb = project.clips[0] ? project.media[project.clips[0].mediaId]?.thumbs[0] : undefined; return <>
-    <p className="lbl">Haze & flare overlays</p><AssetLibrary only="Haze & flare" onAdd={b.addSample} />
     {selLayer?.type === 'effect' && <Slider label="Intensity" value={selLayer.intensity} min={5} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { intensity: v })} />}
-    {EFFECT_GROUPS.map(g => <div key={g}><p className="lbl">{g}</p><div className="fx-grid">{EFFECTS.filter(e => e.group === g).map(e => <button key={e.id} className={`fx-tile fx-${e.id} ${selLayer?.type === 'effect' && selLayer.effect === e.id ? 'on' : ''}`} onClick={() => b.addEffect(e.id)}>
-      <span className="fx-thumb" style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: e.css || undefined }} /><small>{e.name}</small></button>)}</div></div>)}
+    <EffectBrowser thumb={thumb} activeId={selLayer?.type === 'effect' ? selLayer.effect : undefined} onPick={b.addEffect} />
+    <p className="lbl">Haze & flare overlays</p><AssetLibrary only="Haze & flare" onAdd={b.addSample} />
   </>; }
   if (sheet === 'filter' || sheet === 'adjust') {
     if (!lookTarget) return <p className="muted">Add a video or photo first.</p>;
@@ -473,6 +472,18 @@ function RemoveBgButton({ asset, onDone, flash }: { asset: MediaAsset | undefine
   }}><Eraser /> {busy ? 'Removing background…' : 'Remove background'}</Button>;
 }
 
+const TRENDING: EffectType[] = ['neonaura', 'handheld', 'chromatic', 'letterbox', 'velocity', 'vhs', 'dreamy', 'earthquake', 'golden', 'flicker', 'zoomblur', 'noir'];
+function EffectBrowser({ thumb, activeId, onPick }: { thumb: string | undefined; activeId: EffectType | undefined; onPick: (e: EffectType) => void }) {
+  const [q, setQ] = useState(''); const [cat, setCat] = useState<string>('Trending');
+  const list = q.trim() ? EFFECTS.filter(e => e.name.toLowerCase().includes(q.trim().toLowerCase())) : cat === 'Trending' ? TRENDING.map(id => EFFECTS.find(e => e.id === id)!).filter(Boolean) : EFFECTS.filter(e => e.group === cat);
+  return <div className="fx-browser">
+    <input className="fx-search" type="search" placeholder="Search effects (e.g. Shake, Glow, Chromatic)" value={q} onChange={e => setQ(e.target.value)} aria-label="Search effects" />
+    {!q && <div className="fx-cats" role="tablist">{['Trending', ...EFFECT_GROUPS].map(c => <button key={c} role="tab" aria-selected={cat === c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c === 'Trending' ? 'Trending 🔥' : c}</button>)}</div>}
+    <div className="fx-grid">{list.map(e => <button key={e.id} className={`fx-tile fx-${e.id} ${activeId === e.id ? 'on' : ''}`} onClick={() => onPick(e.id)}>
+      <span className="fx-thumb" style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: e.css || undefined }} /><small>{e.name}</small></button>)}
+      {!list.length && <p className="muted">No effects match.</p>}</div>
+  </div>;
+}
 function TrackPanel({ layer, patchLayer }: { layer: Exclude<Layer, { type: 'audio' } | { type: 'effect' }>; patchLayer: BodyProps['patchLayer'] }) {
   const clock = useContext(ClockCtx); const pts = layer.track ?? [];
   const [now, setNow] = useState(() => clock?.get() ?? 0);
@@ -483,9 +494,9 @@ function TrackPanel({ layer, patchLayer }: { layer: Exclude<Layer, { type: 'audi
     <p className="lbl">Move the playhead, then drag the layer or change the sliders. Each change saves a keyframe; the layer glides between them in preview and export.</p>
     <Button onClick={() => put()}><Crosshair /> {here ? 'Keyframe saved here' : pts.length ? 'Add keyframe at playhead' : 'Start keyframes here'}</Button>
     {pts.length > 0 && <>
-      <Slider label="Scale" value={Math.round(cur.s * 100)} min={10} max={400} unit="%" onChange={v => put({ s: v / 100 }, false)} />
-      <Slider label="Rotation" value={Math.round(cur.r)} min={-360} max={360} unit="°" onChange={v => put({ r: v }, false)} />
-      <Slider label="Opacity" value={Math.round(cur.o * 100)} min={0} max={100} unit="%" onChange={v => put({ o: v / 100 }, false)} />
+      <Slider label="Scale" value={Math.round(cur.s * 100)} min={10} max={400} unit="%" onStart={() => undefined} onChange={v => put({ s: v / 100 }, false)} />
+      <Slider label="Rotation" value={Math.round(cur.r)} min={-360} max={360} unit="°" onStart={() => undefined} onChange={v => put({ r: v }, false)} />
+      <Slider label="Opacity" value={Math.round(cur.o * 100)} min={0} max={100} unit="%" onStart={() => undefined} onChange={v => put({ o: v / 100 }, false)} />
       <div className="animation-list">{pts.map((p, i) => <Button variant="ghost" key={i} aria-pressed={p === here} className={`animation-row ${p === here ? 'on' : ''}`} onClick={() => clock?.set(layer.start + p.t)}><span>Keyframe {i + 1}</span><small>{p.t.toFixed(2)}s</small></Button>)}</div>
       {here && <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: pts.filter(p => p !== here) }, true)}><Trash2 /> Delete this keyframe</Button>}
       <Button variant="ghost" onClick={() => patchLayer(layer.id, { track: undefined, ...(pts[0] ? { x: pts[0].x, y: pts[0].y } : {}) }, true)}><Trash2 /> Remove all keyframes</Button>
