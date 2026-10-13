@@ -32,7 +32,7 @@ export type AudioLayer = { id: string; type: 'audio'; start: number; duration: n
 export type Layer = TextLayer | MediaLayer | StickerLayer | EffectLayer | AudioLayer;
 export type VisualLayer = TextLayer | MediaLayer | StickerLayer;
 
-export type EffectType = 'blur' | 'mono' | 'sepia' | 'invert' | 'shake' | 'pulse' | 'flash' | 'glitch' | 'vignette' | 'rainbow' | 'darken' | 'letterbox' | 'strobe' | 'punch' | 'dreamy' | 'push' | 'warm' | 'cool' | 'rgb' | 'zoomblur' | 'heartbeat' | 'vhs' | 'film' | 'bloom' | 'fadein' | 'fadeout' | 'bounce' | 'cyber' | 'golden' | 'noir' | 'overexpose' | 'retro' | 'swing' | 'blackflash' | 'dolly' | 'hazy' | 'chrome';
+export type EffectType = 'blur' | 'mono' | 'sepia' | 'invert' | 'shake' | 'pulse' | 'flash' | 'glitch' | 'vignette' | 'rainbow' | 'darken' | 'letterbox' | 'strobe' | 'punch' | 'dreamy' | 'push' | 'warm' | 'cool' | 'rgb' | 'zoomblur' | 'heartbeat' | 'vhs' | 'film' | 'bloom' | 'fadein' | 'fadeout' | 'bounce' | 'cyber' | 'golden' | 'noir' | 'overexpose' | 'retro' | 'swing' | 'blackflash' | 'dolly' | 'hazy' | 'chrome' | 'neonaura' | 'handheld' | 'chromatic' | 'earthquake' | 'velocity' | 'pinkhaze' | 'iceblue' | 'spotlight' | 'flicker' | 'slowzoom' | 'tvoff' | 'sunburst';
 export type Aspect = '16:9' | '9:16' | '1:1' | '4:5' | '4:3';
 export type ProjectFont = { id: string; family: string; name: string };
 export type Project = { id: string; name: string; aspect: Aspect; background: string; imageDuration: number; clips: Clip[]; layers: Layer[]; media: Record<string, MediaAsset>; fonts?: ProjectFont[]; createdAt: number; updatedAt: number };
@@ -127,7 +127,7 @@ export function adjustCss(a: Adjust) {
 export const lookCss = (filter: string, a: Adjust, extra = '') => [filterCss(filter), adjustCss(a), extra].filter(Boolean).join(' ').trim() || 'none';
 export const temperatureTint = (t: number) => t > 0 ? `rgba(255,140,30,${t / 250})` : t < 0 ? `rgba(40,130,255,${-t / 250})` : '';
 
-export type EffectGroup = 'Cinematic' | 'Motion' | 'Color' | 'Glitch & Light' | 'Haze & flare';
+export type EffectGroup = 'Body & Aura' | 'Impact & Shake' | 'Cinematic' | 'Motion' | 'Color' | 'Glitch & Light' | 'Haze & flare';
 export const EFFECTS: { id: EffectType; name: string; group: EffectGroup; css: string }[] = [
   { id: 'letterbox', name: 'Cinema Bars', group: 'Cinematic', css: '' }, { id: 'dreamy', name: 'Dreamy', group: 'Cinematic', css: 'blur(1.5px) brightness(1.15) saturate(1.2)' },
   { id: 'punch', name: 'Punch', group: 'Cinematic', css: 'contrast(1.4) saturate(1.4)' }, { id: 'vignette', name: 'Vignette', group: 'Cinematic', css: 'brightness(.85)' }, { id: 'darken', name: 'Darken', group: 'Cinematic', css: 'brightness(.5)' },
@@ -143,9 +143,15 @@ export const EFFECTS: { id: EffectType; name: string; group: EffectGroup; css: s
   { id: 'golden', name: 'Golden Hour', group: 'Color', css: 'sepia(.4) saturate(1.5) hue-rotate(-15deg)' }, { id: 'cyber', name: 'Cyberpunk', group: 'Color', css: 'hue-rotate(200deg) saturate(1.8)' },
   { id: 'retro', name: 'Retro 70s', group: 'Color', css: 'sepia(.5) hue-rotate(-20deg) saturate(1.4)' }, { id: 'chrome', name: 'Chrome', group: 'Color', css: 'saturate(2.2) contrast(1.35)' },
   { id: 'vhs', name: 'VHS', group: 'Glitch & Light', css: 'saturate(1.6) blur(.6px)' }, { id: 'bloom', name: 'Bloom', group: 'Haze & flare', css: 'brightness(1.25) saturate(1.2)' },
+  { id: 'neonaura', name: 'Neon Aura', group: 'Body & Aura', css: 'saturate(1.8) hue-rotate(200deg) brightness(1.15)' }, { id: 'pinkhaze', name: 'Pink Aura', group: 'Body & Aura', css: 'saturate(1.5) hue-rotate(-40deg) brightness(1.15)' },
+  { id: 'iceblue', name: 'Ice Glow', group: 'Body & Aura', css: 'saturate(1.3) hue-rotate(170deg) brightness(1.2) contrast(1.1)' }, { id: 'spotlight', name: 'Spotlight', group: 'Body & Aura', css: 'contrast(1.3) brightness(.85)' },
+  { id: 'handheld', name: 'Handheld', group: 'Impact & Shake', css: '' }, { id: 'earthquake', name: 'Earthquake', group: 'Impact & Shake', css: 'blur(.6px)' },
+  { id: 'velocity', name: 'Velocity Hit', group: 'Impact & Shake', css: 'contrast(1.3)' }, { id: 'tvoff', name: 'TV Off', group: 'Impact & Shake', css: 'brightness(.6)' },
+  { id: 'chromatic', name: 'Chromatic Lens', group: 'Glitch & Light', css: 'saturate(1.6) hue-rotate(25deg)' }, { id: 'flicker', name: 'Light Flicker', group: 'Glitch & Light', css: 'brightness(1.4)' },
+  { id: 'slowzoom', name: 'Ken Burns', group: 'Cinematic', css: '' }, { id: 'sunburst', name: 'Sun Burst', group: 'Haze & flare', css: 'sepia(.3) brightness(1.3) saturate(1.3)' },
   { id: 'overexpose', name: 'Overexpose', group: 'Glitch & Light', css: 'brightness(1.6) contrast(.8)' }, { id: 'blackflash', name: 'Black Flash', group: 'Glitch & Light', css: 'brightness(.3)' }, { id: 'strobe', name: 'Strobe', group: 'Glitch & Light', css: 'brightness(1.5) contrast(1.3)' },
 ];
-export const EFFECT_GROUPS: EffectGroup[] = ['Cinematic', 'Motion', 'Color', 'Glitch & Light', 'Haze & flare'];
+export const EFFECT_GROUPS: EffectGroup[] = ['Body & Aura', 'Impact & Shake', 'Cinematic', 'Motion', 'Color', 'Glitch & Light', 'Haze & flare'];
 export const effectName = (id: EffectType) => EFFECTS.find(e => e.id === id)?.name ?? id;
 // Returns CSS filter + transform (in % of frame / deg) + overlay for the active effect layers.
 export function effectState(layers: Layer[], t: number) {
@@ -189,6 +195,18 @@ export function effectState(layers: Layer[], t: number) {
       case 'blackflash': darken = Math.max(darken, Math.floor(local * 6) % 2 ? 0.9 * k : 0); break;
       case 'dolly': scale *= 1 + (Math.sin(local * 2) * 0.5 + 0.5) * 0.2 * k; filters.push(`blur(${(Math.abs(Math.cos(local * 2)) * 0.8 * k).toFixed(2)}px)`); break;
       case 'hazy': filters.push(`contrast(${1 - 0.3 * k}) brightness(${1 + 0.15 * k}) saturate(${1 - 0.3 * k}) blur(${(0.8 * k).toFixed(2)}px)`); break;
+      case 'neonaura': filters.push(`saturate(${1 + 0.8 * k}) hue-rotate(${Math.round(200 * k + Math.sin(local * 2) * 15)}deg) brightness(${1 + 0.15 * k})`); vignette = Math.max(vignette, 0.4 * k); break;
+      case 'pinkhaze': filters.push(`saturate(${1 + 0.5 * k}) hue-rotate(${Math.round(-40 * k)}deg) brightness(${1 + 0.15 * k}) blur(${(0.5 * k).toFixed(2)}px)`); break;
+      case 'iceblue': filters.push(`saturate(${1 + 0.3 * k}) hue-rotate(${Math.round(170 * k)}deg) brightness(${1 + 0.2 * k}) contrast(${1 + 0.1 * k})`); break;
+      case 'spotlight': filters.push(`contrast(${1 + 0.3 * k})`); vignette = Math.max(vignette, 0.85 * k); break;
+      case 'handheld': dx += (Math.sin(local * 1.7) + Math.sin(local * 3.1) * 0.5) * 0.9 * k; dy += (Math.cos(local * 1.3) + Math.sin(local * 2.7) * 0.5) * 0.7 * k; scale *= 1 + 0.04 * k; break;
+      case 'earthquake': dx += Math.sin(local * 83) * 3 * k; dy += Math.cos(local * 97) * 3 * k; scale *= 1 + 0.06 * k; filters.push(`blur(${(0.7 * k).toFixed(2)}px)`); break;
+      case 'velocity': { const ph = (local * 1.5) % 1; scale *= 1 + Math.max(0, 1 - ph * 4) * 0.2 * k; filters.push(`contrast(${1 + 0.3 * k})`); break; }
+      case 'tvoff': { const q = Math.min(1, local / Math.max(0.3, l.duration)); scale *= 1 - q * 0.3 * k; darken = Math.max(darken, q * k); break; }
+      case 'chromatic': { const s = Math.sin(local * 4); filters.push(`saturate(${1 + 0.6 * k}) hue-rotate(${Math.round(s * 30 * k)}deg) blur(${(Math.abs(s) * 0.5 * k).toFixed(2)}px)`); break; }
+      case 'flicker': { const r = Math.abs(Math.sin(Math.floor(local * 18) * 12.9898) * 43758.5453) % 1; filters.push(`brightness(${1 + (r - 0.4) * 0.6 * k})`); break; }
+      case 'slowzoom': scale *= 1 + Math.min(1, local / Math.max(0.5, l.duration)) * 0.25 * k; dx += Math.min(1, local / Math.max(0.5, l.duration)) * 3 * k; break;
+      case 'sunburst': filters.push(`sepia(${0.3 * k}) brightness(${1 + 0.3 * k * (0.8 + 0.2 * Math.sin(local * 2))}) saturate(${1 + 0.3 * k})`); break;
       case 'chrome': filters.push(`saturate(${1 + 1.2 * k}) contrast(${1 + 0.35 * k})`); break;
       case 'rgb': { const s = Math.sin(local * 30); dx += s * 0.6 * k; filters.push(`saturate(${1 + 0.8 * k}) hue-rotate(${Math.round(s * 25 * k)}deg)`); break; }
     }

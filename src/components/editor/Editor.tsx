@@ -326,8 +326,7 @@ function SheetBody(b: BodyProps) {
   if (sheet === 'effect') { const thumb = project.clips[0] ? project.media[project.clips[0].mediaId]?.thumbs[0] : undefined; return <>
     <p className="lbl">Haze & flare overlays</p><AssetLibrary only="Haze & flare" onAdd={b.addSample} />
     {selLayer?.type === 'effect' && <Slider label="Intensity" value={selLayer.intensity} min={5} max={100} unit="%" onStart={beginGesture} onChange={v => patchLayer(selLayer.id, { intensity: v })} />}
-    {EFFECT_GROUPS.map(g => <div key={g}><p className="lbl">{g}</p><div className="fx-grid">{EFFECTS.filter(e => e.group === g).map(e => <button key={e.id} className={`fx-tile fx-${e.id} ${selLayer?.type === 'effect' && selLayer.effect === e.id ? 'on' : ''}`} onClick={() => b.addEffect(e.id)}>
-      <span className="fx-thumb" style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: e.css || undefined }} /><small>{e.name}</small></button>)}</div></div>)}
+    <EffectBrowser thumb={thumb} activeId={selLayer?.type === 'effect' ? selLayer.effect : undefined} onPick={b.addEffect} />
   </>; }
   if (sheet === 'filter' || sheet === 'adjust') {
     if (!lookTarget) return <p className="muted">Add a video or photo first.</p>;
@@ -473,6 +472,18 @@ function RemoveBgButton({ asset, onDone, flash }: { asset: MediaAsset | undefine
   }}><Eraser /> {busy ? 'Removing background…' : 'Remove background'}</Button>;
 }
 
+const TRENDING: EffectType[] = ['neonaura', 'handheld', 'chromatic', 'letterbox', 'velocity', 'vhs', 'dreamy', 'earthquake', 'golden', 'flicker', 'zoomblur', 'noir'];
+function EffectBrowser({ thumb, activeId, onPick }: { thumb: string | undefined; activeId: EffectType | undefined; onPick: (e: EffectType) => void }) {
+  const [q, setQ] = useState(''); const [cat, setCat] = useState<string>('Trending');
+  const list = q.trim() ? EFFECTS.filter(e => e.name.toLowerCase().includes(q.trim().toLowerCase())) : cat === 'Trending' ? TRENDING.map(id => EFFECTS.find(e => e.id === id)!).filter(Boolean) : EFFECTS.filter(e => e.group === cat);
+  return <div className="fx-browser">
+    <input className="fx-search" type="search" placeholder="Search effects (e.g. Shake, Glow, Chromatic)" value={q} onChange={e => setQ(e.target.value)} aria-label="Search effects" />
+    {!q && <div className="fx-cats" role="tablist">{['Trending', ...EFFECT_GROUPS].map(c => <button key={c} role="tab" aria-selected={cat === c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c === 'Trending' ? 'Trending 🔥' : c}</button>)}</div>}
+    <div className="fx-grid">{list.map(e => <button key={e.id} className={`fx-tile fx-${e.id} ${activeId === e.id ? 'on' : ''}`} onClick={() => onPick(e.id)}>
+      <span className="fx-thumb" style={{ backgroundImage: thumb ? `url(${thumb})` : undefined, filter: e.css || undefined }} /><small>{e.name}</small></button>)}
+      {!list.length && <p className="muted">No effects match.</p>}</div>
+  </div>;
+}
 function TrackPanel({ layer, patchLayer }: { layer: Exclude<Layer, { type: 'audio' } | { type: 'effect' }>; patchLayer: BodyProps['patchLayer'] }) {
   const clock = useContext(ClockCtx); const pts = layer.track ?? [];
   const [now, setNow] = useState(() => clock?.get() ?? 0);
