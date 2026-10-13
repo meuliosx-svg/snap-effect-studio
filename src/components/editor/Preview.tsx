@@ -24,7 +24,7 @@ function useMediaSync(ref: React.RefObject<HTMLMediaElement | null>, o: SyncOpts
       if (Math.abs(el.currentTime - o.sourceTime) > 0.04 && el.readyState >= 1) el.currentTime = o.sourceTime;
     }
   });
-  useEffect(() => { const el = ref.current; return () => { if (el) { liveMedia.delete(el); el.pause(); el.removeAttribute('src'); el.load(); } }; }, [ref]);
+  useEffect(() => { const el = ref.current; return () => { if (el) { liveMedia.delete(el); el.pause(); el.muted = true; } }; }, [ref]);
 }
 
 function Video({ src, className, style, ...sync }: SyncOpts & { src: string; className?: string; style?: CSSProperties }) {
